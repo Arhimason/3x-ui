@@ -109,6 +109,27 @@ func (s *ApiTokenService) SetEnabled(id int, enabled bool) error {
 	return nil
 }
 
+// TransportSecret returns the stored SHA-256 hash of the named token, which is
+// the shared secret the management gRPC keys its AES-256-GCM transport with.
+//
+// The digest is used rather than the token because the plaintext is shown once
+// at creation and never persisted - the hash is the only value this node and the
+// panel provably share. That makes the hash key material: a reader of this table
+// can both decrypt and impersonate the panel on this node's management channel.
+// It is scoped to one node (each node gets its own token), and anyone able to
+// read this table already holds every client config on the node.
+func (s *ApiTokenService) TransportSecret(name string) (string, error) {
+	var row model.ApiToken
+	err := database.GetDB().
+		Model(model.ApiToken{}).
+		Where("name = ? AND enabled = ?", name, true).
+		First(&row).Error
+	if err != nil {
+		return "", err
+	}
+	return row.Token, nil
+}
+
 // Match returns true when the presented bearer token matches any enabled
 // row in api_tokens. Tokens are stored as SHA-256 hashes, so the presented
 // value is hashed before a constant-time compare per row keeps a remote

@@ -22,6 +22,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/sys"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/tokenaead"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/controller"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/grpcapi"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/job"
@@ -614,7 +615,7 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 		_ = s.httpServer.Serve(listener)
 	}()
 
-	if err := s.startGRPC(certFile, keyFile); err != nil {
+	if err := s.startGRPC(); err != nil {
 		logger.Warning("gRPC panel API not started:", err)
 	}
 
@@ -692,7 +693,7 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 }
 
 // Stop gracefully shuts down the web server, stops Xray, cron jobs, and Telegram bot.
-func (s *Server) startGRPC(certFile, keyFile string) error {
+func (s *Server) startGRPC() error {
 	addr := config.GetGRPCListen()
 	if addr == "" {
 		// Fall back to the persisted setting so `x-ui grpc-connect` can enable the
@@ -702,25 +703,23 @@ func (s *Server) startGRPC(certFile, keyFile string) error {
 		}
 	}
 	if addr == "" {
+		// Say so: this used to return silently, so "the panel cannot reach the node"
+		// and "the listener was never configured" looked identical in the log.
+		logger.Info("gRPC panel API disabled: no grpc listen address configured (x-ui grpc-connect sets one)")
 		return nil
 	}
-	var creds credentials.TransportCredentials
-	if certFile != "" && keyFile != "" {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return err
-		}
-		c := &tls.Config{Certificates: []tls.Certificate{cert}}
-		if pool, perr := s.settingService.NodeMtlsClientCAPool(); perr != nil {
-			logger.Warning("gRPC node mTLS: failed to build client CA trust pool:", perr)
-		} else if pool != nil {
-			applyNodeMtls(c, pool)
-			logger.Info("gRPC panel API: verifying client certificates (node mTLS)")
-		}
-		creds = credentials.NewTLS(c)
-	} else {
-		logger.Warning("gRPC panel API listening without TLS on", addr)
+	// The management channel is keyed by the panel token, not by X.509. 3x-ui has
+	// no certificate of its own to offer the panel, and reusing the web cert made
+	// this listener hostage to it: with no cert it fell back to plaintext, and with
+	// a cert that failed to load it did not come up at all while the web panel kept
+	// serving. Token-derived AES-256-GCM removes both failure modes and, unlike the
+	// panel's previous InsecureSkipVerify dial, actually authenticates the peer -
+	// a wrong token cannot decrypt the stream.
+	secret, err := (&panel.ApiTokenService{}).TransportSecret(service.PanelApiTokenName)
+	if err != nil || strings.TrimSpace(secret) == "" {
+		return fmt.Errorf("no enabled %q api token to key the management gRPC; run: x-ui grpc-connect <panel_grpc> <token> <node-id>", service.PanelApiTokenName)
 	}
+	creds := credentials.TransportCredentials(tokenaead.Server(secret))
 	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		return err

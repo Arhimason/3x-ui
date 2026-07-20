@@ -10,9 +10,11 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/util/crypto"
 )
 
-// panelApiTokenName is the fixed name of the API token row `grpc-connect`
-// manages, so repeated runs replace it rather than accumulating tokens.
-const panelApiTokenName = "wings-panel"
+// PanelApiTokenName is the fixed name of the API token row `grpc-connect`
+// manages, so repeated runs replace it rather than accumulating tokens. The web
+// server keys the management gRPC transport off this same row, so both sides
+// must agree on the name - hence exported rather than duplicated.
+const PanelApiTokenName = "wings-panel"
 
 // GRPCConnect wires this 3x-ui to a wingsv panel from the CLI: it enables the
 // management gRPC (persisted setting), registers the panel's bearer token, and
@@ -37,11 +39,11 @@ func GRPCConnect(panelGrpc, token, nodeID, grpcListen string) error {
 
 	db := database.GetDB()
 	// Upsert the panel bearer token (stored as a SHA-256 hash).
-	if err := db.Where("name = ?", panelApiTokenName).Delete(&model.ApiToken{}).Error; err != nil {
+	if err := db.Where("name = ?", PanelApiTokenName).Delete(&model.ApiToken{}).Error; err != nil {
 		return fmt.Errorf("clear old token: %w", err)
 	}
 	if err := db.Create(&model.ApiToken{
-		Name:    panelApiTokenName,
+		Name:    PanelApiTokenName,
 		Token:   crypto.HashTokenSHA256(token),
 		Enabled: true,
 	}).Error; err != nil {
