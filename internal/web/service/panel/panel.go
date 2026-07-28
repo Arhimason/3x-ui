@@ -529,9 +529,15 @@ func compareVersionStrings(a string, b string) (int, bool) {
 	return 0, true
 }
 
-func parseVersionParts(version string) ([3]int, bool) {
-	var result [3]int
-	parts := strings.Split(normalizeVersionTag(version), ".")
+func parseVersionParts(version string) ([4]int, bool) {
+	var result [4]int
+	// Compare the numeric X.Y.Z core plus the rebuild revision. Fork tags carry a
+	// -wv marker and an optional -rN revision (3.5.0-wv, 3.5.0-wv-r2); the revision
+	// is the 4th component so a rebuilt release reads as newer than the base it was
+	// cut from. A plain -wv (no -rN) is revision 0. For this to settle the update
+	// banner, the embedded version file must carry the same -rN as the release tag.
+	segments := strings.Split(normalizeVersionTag(version), "-")
+	parts := strings.Split(segments[0], ".")
 	if len(parts) != 3 {
 		return result, false
 	}
@@ -541,6 +547,13 @@ func parseVersionParts(version string) ([3]int, bool) {
 			return result, false
 		}
 		result[i] = n
+	}
+	for _, seg := range segments[1:] {
+		if rev, ok := strings.CutPrefix(seg, "r"); ok {
+			if n, err := strconv.Atoi(rev); err == nil {
+				result[3] = n
+			}
+		}
 	}
 	return result, true
 }

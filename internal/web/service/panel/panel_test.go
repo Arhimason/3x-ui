@@ -24,6 +24,15 @@ func TestIsNewerVersion(t *testing.T) {
 		{"v2.9.3", "2.9.3", false},
 		{"v2.9.2", "2.9.3", false},
 		{"v3.0.0", "2.9.3", true},
+		// The fork tags carry a -wv marker and -rN rebuild revisions; the revision
+		// is a real 4th version component, so a higher -rN reports as an update and
+		// an equal or lower one does not.
+		{"v3.5.0-wv", "3.5.0-wv", false},
+		{"v3.5.0-wv-r1", "3.5.0-wv", true},
+		{"v3.5.0-wv-r2", "3.5.0-wv-r1", true},
+		{"v3.5.0-wv-r1", "3.5.0-wv-r1", false},
+		{"v3.6.0-wv", "3.5.0-wv-r5", true},
+		{"v3.5.0-wv", "3.5.0-wv-r1", false},
 	}
 
 	for _, tc := range cases {
