@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -325,11 +326,22 @@ func (a *authenticator) noteDerivation(ctx context.Context) {
 	if !ok {
 		return
 	}
-	addr := pr.Addr.String()
-	if _, seen := a.seenDerivation.LoadOrStore(addr, variant); seen {
+	// Keyed by host, not by the full address: the panel opens a fresh connection
+	// per call, so an ephemeral port in the key would log this every few seconds
+	// for the lifetime of the process.
+	host := peerHost(pr.Addr.String())
+	if _, seen := a.seenDerivation.LoadOrStore(host, variant); seen {
 		return
 	}
-	logger.Info("gRPC panel API: peer", addr, "uses", variant.String(), "key derivation")
+	logger.Info("gRPC panel API: peer", host, "uses", variant.String(), "key derivation")
+}
+
+func peerHost(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
 }
 
 func (a *authenticator) authorize(ctx context.Context) bool {
