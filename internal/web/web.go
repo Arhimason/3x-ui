@@ -719,7 +719,11 @@ func (s *Server) startGRPC() error {
 	if err != nil || strings.TrimSpace(secret) == "" {
 		return fmt.Errorf("no enabled %q api token to key the management gRPC; run: x-ui grpc-connect <panel_grpc> <token> <node-id>", service.PanelApiTokenName)
 	}
-	creds := credentials.TransportCredentials(tokenaead.Server(secret))
+	// Both derivations are accepted while the fleet moves to SHA-512. The
+	// transport has no handshake to negotiate with, so the listener resolves it
+	// from the first record instead; that is what lets nodes and panels update on
+	// their own schedules.
+	creds := credentials.TransportCredentials(tokenaead.ServerAny(secret, tokenaead.SHA512, tokenaead.Legacy256))
 	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		return err

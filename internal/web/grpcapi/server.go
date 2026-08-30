@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -15,6 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/tokenaead"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
@@ -305,6 +308,28 @@ func toClientTraffic(t *xray.ClientTraffic) *panelapi.ClientTraffic {
 
 type authenticator struct {
 	tokens *panel.ApiTokenService
+	// seenDerivation remembers which peers have already been logged, keyed by
+	// remote address, so the migration line appears once and not per RPC
+	seenDerivation sync.Map
+}
+
+// noteDerivation logs, once per peer, which key derivation it turned up with.
+// Accepting both is a migration, and a migration nobody can see the end of never
+// ends: this is how an operator knows when the sha256 path can be dropped.
+func (a *authenticator) noteDerivation(ctx context.Context) {
+	pr, ok := peer.FromContext(ctx)
+	if !ok || pr.AuthInfo == nil {
+		return
+	}
+	variant, ok := tokenaead.NegotiatedVariant(pr.AuthInfo)
+	if !ok {
+		return
+	}
+	addr := pr.Addr.String()
+	if _, seen := a.seenDerivation.LoadOrStore(addr, variant); seen {
+		return
+	}
+	logger.Info("gRPC panel API: peer", addr, "uses", variant.String(), "key derivation")
 }
 
 func (a *authenticator) authorize(ctx context.Context) bool {
@@ -326,6 +351,7 @@ func (a *authenticator) authorize(ctx context.Context) bool {
 }
 
 func (a *authenticator) unary(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+	a.noteDerivation(ctx)
 	if !a.authorize(ctx) {
 		return nil, status.Error(codes.Unauthenticated, "missing or invalid API credentials")
 	}
@@ -333,6 +359,7 @@ func (a *authenticator) unary(ctx context.Context, req any, _ *grpc.UnaryServerI
 }
 
 func (a *authenticator) stream(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	a.noteDerivation(ss.Context())
 	if !a.authorize(ss.Context()) {
 		return status.Error(codes.Unauthenticated, "missing or invalid API credentials")
 	}
