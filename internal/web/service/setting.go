@@ -61,6 +61,9 @@ var defaultValueMap = map[string]string{
 	"secret":             random.Seq(32),
 	"panelGuid":          uuid.NewString(),
 	"apiToken":           "",
+	// Panel management gRPC listen address, persisted so `x-ui grpc-connect` can
+	// enable it without editing the service environment. XUI_GRPC_LISTEN env wins.
+	"grpcListen": "",
 	// Node mTLS material (opt-in). All default empty: the CA + master client
 	// cert are minted lazily on first use, and the node-side trust CA is pasted
 	// in by the operator. Kept out of entity.AllSetting so private keys never
@@ -228,6 +231,11 @@ var defaultValueMap = map[string]string{
 	"discordMemory":        "80",
 	"discordLang":          "en-US",
 	"discordEnabledEvents": "login.attempt,cpu.high",
+
+	// vk-turn-proxy / installed binary release tracking
+	"vkTurnProxyManualStop": "false",
+	"vkTurnProxyReleaseTag": "",
+	"xrayReleaseTag":        "",
 }
 
 // SettingService provides business logic for application settings management.
@@ -680,6 +688,14 @@ func (s *SettingService) GetPort() (int, error) {
 
 func (s *SettingService) SetPort(port int) error {
 	return s.setInt("webPort", port)
+}
+
+func (s *SettingService) GetGRPCListen() (string, error) {
+	return s.getString("grpcListen")
+}
+
+func (s *SettingService) SetGRPCListen(addr string) error {
+	return s.setString("grpcListen", addr)
 }
 
 func (s *SettingService) SetCertFile(webCertFile string) error {

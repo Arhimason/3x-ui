@@ -214,6 +214,12 @@ func GetNodeTokenKeyEnv() string {
 	return "XUI_NODE_TOKEN_KEY"
 }
 
+// GetGRPCListen returns the panel management gRPC listen address from the environment.
+// An empty value leaves the listener disabled until settings provide one.
+func GetGRPCListen() string {
+	return strings.TrimSpace(os.Getenv("XUI_GRPC_LISTEN"))
+}
+
 // GetEnvFilePaths returns the candidate service environment file paths (the file
 // systemd loads via EnvironmentFile) across the supported distro families.
 func GetEnvFilePaths() []string {

@@ -14,6 +14,7 @@ export const ProtocolSchema = z.enum([
   'mtproto',
   'amneziawg',
   'tuic',
+  'vk-turn-proxy',
 ]);
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
@@ -37,4 +38,5 @@ export const Protocols = Object.freeze({
   MTPROTO: 'mtproto',
   AMNEZIAWG: 'amneziawg',
   TUIC: 'tuic',
+  VK_TURN_PROXY: 'vk-turn-proxy',
 });

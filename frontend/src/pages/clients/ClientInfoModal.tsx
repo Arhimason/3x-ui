@@ -567,6 +567,47 @@ export default function ClientInfoModal({
               </tbody>
             </table>
 
+            {links.length > 0 && (
+              <>
+                <Divider>{t('pages.inbounds.copyLink')}</Divider>
+                {links.map((link, idx) => {
+                  const parts = parseLinkParts(link);
+                  const fallback = `${t('pages.clients.link')} ${idx + 1}`;
+                  // Links without an in-URL remark (e.g. wingsv://, whose name lives
+                  // inside the encoded payload) fall back to the client email rather
+                  // than a generic "Link N".
+                  const rowTitle = (parts && linkMetaText(parts)) || client.email || fallback;
+                  const qrRemark = [parts?.remark, client.email].filter(Boolean).join('-') || rowTitle;
+                  const canQr = !isPostQuantumLink(link);
+                  return (
+                    <div key={idx} className="link-row">
+                      {parts
+                        ? <LinkTags parts={parts} />
+                        : <Tag className="link-row-tag">LINK</Tag>}
+                      <span className="link-row-title" title={rowTitle}>{rowTitle}</span>
+                      <div className="link-row-actions">
+                        <Tooltip title={t('copy')}>
+                          <Button size="small" icon={<CopyOutlined />} onClick={() => copyValue(link)} />
+                        </Tooltip>
+                        {canQr && (
+                          <Popover
+                            trigger="click"
+                            placement="left"
+                            destroyOnHidden
+                            content={<QrPanel value={link} remark={qrRemark} size={220} />}
+                          >
+                            <Tooltip title={t('pages.clients.qrCode')}>
+                              <Button size="small" icon={<QrcodeOutlined />} />
+                            </Tooltip>
+                          </Popover>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
             {showSubscription && subLink && (
               <>
                 <Divider>{t('subscription.title')}</Divider>

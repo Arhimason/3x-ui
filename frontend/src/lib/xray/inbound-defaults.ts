@@ -16,6 +16,7 @@ import type { TunInboundSettings } from '@/schemas/protocols/inbound/tun';
 import type { TunnelInboundSettings } from '@/schemas/protocols/inbound/tunnel';
 import type { VlessClient, VlessInboundSettings } from '@/schemas/protocols/inbound/vless';
 import type { VmessClient, VmessInboundSettings } from '@/schemas/protocols/inbound/vmess';
+import type { VkTurnProxyInboundSettings } from '@/schemas/protocols/inbound/vk-turn-proxy';
 import type { WireguardInboundSettings } from '@/schemas/protocols/inbound/wireguard';
 
 // Plain-object factories for protocol clients. Each returns a Zod-parsable
@@ -357,6 +358,25 @@ export function createDefaultTuicInboundSettings(): TuicInboundSettings {
   };
 }
 
+// vk-turn-proxy is a standalone relay listener (not xray-core): it decrypts
+// inbound traffic and forwards it to a WireGuard or Hysteria2 inbound, or a
+// raw host:port. A fresh inbound defaults the forward target to a host with
+// no value yet so the user picks it in the form. clients start empty; the
+// backend auto-provisions a managed WG peer on save for each client row.
+export function createDefaultVkTurnProxyInboundSettings(): VkTurnProxyInboundSettings {
+  return {
+    forward: { type: 'host' },
+    sessionMode: '',
+    wgMtu: 1420,
+    threads: 1,
+    useUdp: false,
+    noObfuscation: false,
+    wrapMode: 'off',
+    wrapAcceptClientKeys: true,
+    clients: [],
+  };
+}
+
 // Protocol-aware dispatch over every inbound-settings factory. Mirrors
 // the legacy `Inbound.Settings.getSettings(protocol)` dispatcher, but
 // returns a plain Zod-parsable object instead of a class instance.
@@ -375,7 +395,8 @@ export type AnyInboundSettings =
   | WireguardInboundSettings
   | MtprotoInboundSettings
   | AmneziawgInboundSettings
-  | TuicInboundSettings;
+  | TuicInboundSettings
+  | VkTurnProxyInboundSettings;
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -405,6 +426,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultAmneziawgInboundSettings();
     case 'tuic':
       return createDefaultTuicInboundSettings();
+    case 'vk-turn-proxy':
+      return createDefaultVkTurnProxyInboundSettings();
     default:
       return null;
   }

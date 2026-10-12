@@ -66,6 +66,15 @@ export interface AmneziaWGInfo {
   running: boolean;
 }
 
+export interface VkTurnProxyInfo {
+  state: 'running' | 'stop' | 'error' | string;
+  errorMsg: string;
+  version: string;
+  running: number;
+  enabled: number;
+  color: string;
+}
+
 interface StatusInput {
   cpu?: number;
   cpuCores?: number;
@@ -85,6 +94,7 @@ interface StatusInput {
   appStats?: AppStats;
   xray?: Partial<XrayInfo>;
   amneziawg?: Partial<AmneziaWGInfo>;
+  vkTurnProxy?: Partial<VkTurnProxyInfo>;
 }
 
 export class Status {
@@ -106,6 +116,14 @@ export class Status {
   appStats: AppStats = { threads: 0, mem: 0, uptime: 0 };
   xray: XrayInfo = { state: 'stop', errorMsg: '', version: '', color: '' };
   amneziawg: AmneziaWGInfo = { configured: false, running: false };
+  vkTurnProxy: VkTurnProxyInfo = {
+    state: 'stop',
+    errorMsg: '',
+    version: '',
+    running: 0,
+    enabled: 0,
+    color: '',
+  };
 
   constructor(data?: StatusInput | null) {
     if (data == null) return;
@@ -129,5 +147,7 @@ export class Status {
     this.xray = { ...this.xray, ...(data.xray || {}) };
     this.xray.color = XRAY_STATE_COLORS[this.xray.state] ?? 'gray';
     this.amneziawg = { ...this.amneziawg, ...(data.amneziawg || {}) };
+    this.vkTurnProxy = { ...this.vkTurnProxy, ...(data.vkTurnProxy || {}) };
+    this.vkTurnProxy.color = XRAY_STATE_COLORS[this.vkTurnProxy.state] ?? 'gray';
   }
 }

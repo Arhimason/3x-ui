@@ -1,0 +1,249 @@
+package service
+
+import (
+	"strings"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/xray"
+)
+
+// ReconcileVKTurnProxyClientPeers brings each managed client peer in the target
+// wireguard inbound in line with the client's EFFECTIVE active state: the
+// inbound is enabled, the client is enabled in settings, and its traffic row is
+// still enabled (not depleted/expired). Depleted or expired clients have their
+// peer pulled so traffic limits and expiry actually cut access; clients that
+// become active again (e.g. after a traffic reset) get their peer restored. The
+// wireguard inbound is only rewritten when the peer set actually changes, so the
+// 5s reconcile loop stays a no-op in steady state.
+func (s *InboundService) ReconcileVKTurnProxyClientPeers() error {
+	db := database.GetDB()
+	var inbounds []*model.Inbound
+	if err := db.Where("protocol = ?", model.VKTurnProxy).Find(&inbounds).Error; err != nil {
+		return err
+	}
+	for _, inbound := range inbounds {
+		settings, err := s.getVKTurnProxySettings(inbound.Settings)
+		if err != nil {
+			continue
+		}
+		if settings.Forward.Type != VKTurnProxyForwardWireGuardInbound || settings.Forward.WireGuardInboundID <= 0 {
+			continue
+		}
+		wgInboundID := settings.Forward.WireGuardInboundID
+
+		trafficEnabled := map[string]bool{}
+		var rows []xray.ClientTraffic
+		if err := db.Model(&xray.ClientTraffic{}).Where("inbound_id = ?", inbound.Id).Find(&rows).Error; err == nil {
+			for _, row := range rows {
+				trafficEnabled[row.Email] = row.Enable
+			}
+		}
+
+		desiredPresent := map[string]wireguardPeer{}
+		desiredAbsent := map[string]struct{}{}
+		for i := range settings.Clients {
+			client := &settings.Clients[i]
+			publicKey := strings.TrimSpace(resolveVKTurnProxyClientPublicKey(client))
+			if publicKey == "" {
+				continue
+			}
+			te, ok := trafficEnabled[client.Email]
+			if !ok {
+				te = true // no traffic row yet: treat as active until one is synced
+			}
+			active := inbound.Enable && client.Enable && te
+			if active && client.Peer != nil {
+				desiredPresent[publicKey] = vkTurnProxyClientPeerToWireguardPeer(client.Peer, client.Email)
+			} else {
+				desiredAbsent[publicKey] = struct{}{}
+			}
+		}
+
+		wgInbound, err := s.GetInbound(wgInboundID)
+		if err != nil || wgInbound.Protocol != model.WireGuard {
+			continue
+		}
+		_, peers, err := s.getWireguardSettings(wgInbound.Settings)
+		if err != nil {
+			continue
+		}
+		present := map[string]struct{}{}
+		for _, peer := range peers {
+			present[strings.TrimSpace(peer.PublicKey)] = struct{}{}
+		}
+
+		var toAdd []string
+		var toRemove []string
+		for pk := range desiredPresent {
+			if _, ok := present[pk]; !ok {
+				toAdd = append(toAdd, pk)
+			}
+		}
+		for pk := range desiredAbsent {
+			if _, ok := present[pk]; ok {
+				toRemove = append(toRemove, pk)
+			}
+		}
+		if len(toAdd) == 0 && len(toRemove) == 0 {
+			continue
+		}
+
+		if _, err := s.mutateWireguardPeers(wgInboundID, func(current []wireguardPeer) ([]wireguardPeer, error) {
+			out := make([]wireguardPeer, 0, len(current)+len(desiredPresent))
+			seen := map[string]struct{}{}
+			for _, peer := range current {
+				pk := strings.TrimSpace(peer.PublicKey)
+				if _, drop := desiredAbsent[pk]; drop {
+					continue
+				}
+				if replacement, ok := desiredPresent[pk]; ok {
+					out = append(out, keepClientIdentity(replacement, peer))
+					seen[pk] = struct{}{}
+					continue
+				}
+				out = append(out, peer)
+			}
+			for pk, peer := range desiredPresent {
+				if _, ok := seen[pk]; !ok {
+					out = append(out, peer)
+				}
+			}
+			return out, nil
+		}); err != nil {
+			logger.Warning("vk-turn-proxy: reconcile client peers failed for inbound", inbound.Id, ":", err)
+			continue
+		}
+
+		// WireGuard peers are static in xray-core: a running inbound cannot accept a
+		// new peer over the gRPC API (AlterInbound re-adds the whole inbound and
+		// xray rejects it with "empty peers"), so a peer-set change only takes
+		// effect on a config reload. Flag a restart; the periodic restart job
+		// (~30s) reloads the regenerated config, which now carries the delta.
+		isNeedXrayRestart.Store(true)
+	}
+	return nil
+}
+
+// vkTurnProxyClientIDByEmail resolves a vk-turn-proxy client's ID from its
+// email so the generic by-email client endpoints can route into the
+// id-addressed vk-turn-proxy client methods.
+func (s *InboundService) vkTurnProxyClientIDByEmail(inboundID int, email string) (string, bool) {
+	inbound, err := s.GetInbound(inboundID)
+	if err != nil || inbound.Protocol != model.VKTurnProxy {
+		return "", false
+	}
+	settings, err := s.getVKTurnProxySettings(inbound.Settings)
+	if err != nil {
+		return "", false
+	}
+	for i := range settings.Clients {
+		if settings.Clients[i].Email == email {
+			return settings.Clients[i].ID, true
+		}
+	}
+	return "", false
+}
+
+// cleanupVKTurnProxyInboundPeers pulls every managed client peer of a
+// vk-turn-proxy inbound from its target wireguard inbound when the inbound is
+// deleted, so the freed 10.0.0.X addresses become available again. Best
+// effort: failures are logged, never block the delete.
+func (s *InboundService) cleanupVKTurnProxyInboundPeers(inbound *model.Inbound) {
+	settings, err := s.getVKTurnProxySettings(inbound.Settings)
+	if err != nil {
+		return
+	}
+	if settings.Forward.Type != VKTurnProxyForwardWireGuardInbound || settings.Forward.WireGuardInboundID <= 0 {
+		return
+	}
+	for i := range settings.Clients {
+		publicKey := strings.TrimSpace(resolveVKTurnProxyClientPublicKey(&settings.Clients[i]))
+		if publicKey == "" {
+			continue
+		}
+		if _, rErr := s.removeWireguardPeerByPublicKey(settings.Forward.WireGuardInboundID, publicKey); rErr != nil {
+			logger.Warning("vk-turn-proxy: cleanup peer on inbound delete failed:", rErr)
+		}
+	}
+}
+
+// applyVKTurnProxyInboundOnSave validates a vk-turn-proxy inbound's settings
+// and, when it forwards into a wireguard inbound, reconciles the per-client
+// managed peers: it mints a fresh keypair plus a unique 10.0.0.X address for
+// any client missing peer info, upserts or pulls each client's peer in the
+// target wireguard inbound based on its enable flag, and pulls peers for
+// clients that were removed since the previous save. inbound.Settings is
+// rewritten with the normalized result. oldInbound may be nil (fresh add).
+func (s *InboundService) applyVKTurnProxyInboundOnSave(oldInbound, inbound *model.Inbound) (bool, error) {
+	settings, err := s.getVKTurnProxySettings(inbound.Settings)
+	if err != nil {
+		return false, err
+	}
+	isWG := settings.Forward.Type == VKTurnProxyForwardWireGuardInbound
+	if err := s.validateVKTurnProxySettings(settings, isWG); err != nil {
+		return false, err
+	}
+
+	needRestart := false
+	if isWG && settings.Forward.WireGuardInboundID > 0 {
+		previous := map[string]VKTurnProxyClient{}
+		if oldInbound != nil && oldInbound.Protocol == model.VKTurnProxy {
+			if oldSettings, oErr := s.getVKTurnProxySettings(oldInbound.Settings); oErr == nil {
+				for _, c := range oldSettings.Clients {
+					previous[c.ID] = c
+				}
+			}
+		}
+
+		allocator, aErr := s.newVKTurnProxyPeerAllocator(settings)
+		if aErr != nil {
+			return false, aErr
+		}
+
+		newIDs := make(map[string]struct{}, len(settings.Clients))
+		for i := range settings.Clients {
+			s.normalizeVKTurnProxyClient(&settings.Clients[i], true)
+			if pErr := s.autoProvisionVKTurnProxyManagedPeer(&settings.Clients[i], allocator); pErr != nil {
+				return needRestart, pErr
+			}
+			var prev *VKTurnProxyClient
+			if p, ok := previous[settings.Clients[i].ID]; ok {
+				clone := p
+				prev = &clone
+			}
+			restart, bErr := s.applyVKTurnProxyClientBinding(settings, &settings.Clients[i], prev)
+			if bErr != nil {
+				return needRestart, bErr
+			}
+			needRestart = needRestart || restart
+			newIDs[settings.Clients[i].ID] = struct{}{}
+		}
+
+		// Clients deleted since the previous save: pull their peer from the
+		// target wireguard inbound so the freed 10.0.0.X address can be reused.
+		for id := range previous {
+			if _, kept := newIDs[id]; kept {
+				continue
+			}
+			removed := previous[id]
+			publicKey := strings.TrimSpace(resolveVKTurnProxyClientPublicKey(&removed))
+			if publicKey == "" {
+				continue
+			}
+			restart, rErr := s.removeWireguardPeerByPublicKey(settings.Forward.WireGuardInboundID, publicKey)
+			if rErr != nil {
+				return needRestart, rErr
+			}
+			needRestart = needRestart || restart
+		}
+	}
+
+	rawSettings, err := s.marshalVKTurnProxySettings(settings)
+	if err != nil {
+		return needRestart, err
+	}
+	inbound.Settings = rawSettings
+	return needRestart, nil
+}

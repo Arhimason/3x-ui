@@ -238,3 +238,73 @@ func TestGetXrayConfigWireGuardNoClientsEmitsEmptyPeers(t *testing.T) {
 		t.Fatalf("expected empty peers, got %v", peers)
 	}
 }
+
+// This fork keeps WireGuard peers inline in settings.peers (vk-turn-proxy mirrors
+// into them) with no client rows. GetXrayConfig must pass those through, not
+// clobber them into an empty list (which makes xray-core fail with "empty peers").
+func TestGetXrayConfigWireGuardInlinePeersPreserved(t *testing.T) {
+	setupSettingTestDB(t)
+	db := database.GetDB()
+	in := &model.Inbound{
+		Tag:      "wg-inline",
+		Enable:   true,
+		Port:     51823,
+		Protocol: model.WireGuard,
+		Settings: `{"secretKey":"` + wgTestSecretKey() +
+			`","mtu":1420,"peers":[{"publicKey":"pub-inline","allowedIPs":["10.0.0.9/32"]}]}`,
+	}
+	if err := db.Create(in).Error; err != nil {
+		t.Fatalf("create wg inbound: %v", err)
+	}
+
+	peers := wgPeerList(t, wgInboundEmittedSettings(t, "wg-inline"))
+	if len(peers) != 1 {
+		t.Fatalf("inline peer must be preserved, got %d: %v", len(peers), peers)
+	}
+	if peers[0]["publicKey"] != "pub-inline" {
+		t.Errorf("inline peer not preserved: %v", peers[0])
+	}
+}
+
+// A forward-target wireguard inbound can carry BOTH a raw client row and
+// vk-turn-proxy managed inline peers at once. GetXrayConfig must UNION them, not
+// let the client-derived list clobber the inline managed peers (which drops
+// forwarded vk-turn-proxy clients from the live config and kills connectivity).
+func TestGetXrayConfigWireGuardInlinePlusClientUnion(t *testing.T) {
+	setupSettingTestDB(t)
+	db := database.GetDB()
+	in := &model.Inbound{
+		Tag:      "wg-mixed",
+		Enable:   true,
+		Port:     51824,
+		Protocol: model.WireGuard,
+		Settings: `{"secretKey":"` + wgTestSecretKey() +
+			`","mtu":1420,"peers":[` +
+			`{"publicKey":"pub-managed-a","allowedIPs":["10.0.0.3/32"]},` +
+			`{"publicKey":"pub-managed-b","allowedIPs":["10.0.0.8/32"]}]}`,
+	}
+	if err := db.Create(in).Error; err != nil {
+		t.Fatalf("create wg inbound: %v", err)
+	}
+	// A raw client row on the same inbound (the "stolen peer" case).
+	svc := ClientService{}
+	if err := svc.SyncInbound(nil, in.Id, []model.Client{
+		{Email: "raw@wg.test", Enable: true, PublicKey: "pub-raw", AllowedIPs: []string{"10.0.0.2/32"}},
+	}); err != nil {
+		t.Fatalf("SyncInbound: %v", err)
+	}
+
+	peers := wgPeerList(t, wgInboundEmittedSettings(t, "wg-mixed"))
+	got := map[string]bool{}
+	for _, p := range peers {
+		got[p["publicKey"].(string)] = true
+	}
+	for _, want := range []string{"pub-managed-a", "pub-managed-b", "pub-raw"} {
+		if !got[want] {
+			t.Errorf("peer %q missing from union: %v", want, got)
+		}
+	}
+	if len(peers) != 3 {
+		t.Fatalf("expected 3 unioned peers, got %d: %v", len(peers), peers)
+	}
+}

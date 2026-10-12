@@ -2749,7 +2749,8 @@
               "tun",
               "mtproto",
               "amneziawg",
-              "tuic"
+              "tuic",
+              "vk-turn-proxy"
             ],
             "example": "vless",
             "type": "string"
@@ -5521,6 +5522,283 @@
         }
       }
     },
+    "/panel/api/inbounds/{id}/vk-turn-proxy/peer-options": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "List the wireguard peers available for binding a vk-turn-proxy client when the inbound forwards into a wireguard inbound.",
+        "operationId": "get_panel_api_inbounds_id_vk_turn_proxy_peer_options",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "vk-turn-proxy inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/wireguard/allowedIpConflicts": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "List duplicate allowedIP conflicts (the 10.0.0.X/32 pool) among a wireguard inbound peers so the UI can offer an auto-fix.",
+        "operationId": "get_panel_api_inbounds_id_wireguard_allowedIpConflicts",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "WireGuard inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/wireguard/fixAllowedIpConflicts": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Reassign each duplicate 10.0.0.X/32 allowedIP in a wireguard inbound to a fresh unique address, re-sync any bound vk-turn-proxy client, and return the peers that were changed.",
+        "operationId": "post_panel_api_inbounds_id_wireguard_fixAllowedIpConflicts",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "WireGuard inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/vk-turn-proxy/export/{clientId}": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Build the wingsv:// config link for a single vk-turn-proxy client. Honours forwarded headers only from a trusted proxy.",
+        "operationId": "get_panel_api_inbounds_id_vk_turn_proxy_export_clientId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "vk-turn-proxy inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "description": "vk-turn-proxy client ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/vk-turn-proxy/export-all": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Build wingsv:// config links for every enabled vk-turn-proxy client of the inbound.",
+        "operationId": "get_panel_api_inbounds_id_vk_turn_proxy_export_all",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "vk-turn-proxy inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/vk-turn-proxy/clients/{clientId}/enable": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Toggle a single vk-turn-proxy client on or off without resending the whole settings JSON. Disabling pulls the client peer from the target wireguard inbound while keeping its reserved address.",
+        "operationId": "post_panel_api_inbounds_id_vk_turn_proxy_clients_clientId_enable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "vk-turn-proxy inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "description": "vk-turn-proxy client ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enable": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/{id}/fallbacks": {
       "get": {
         "tags": [
@@ -6910,6 +7188,268 @@
                     "2025/01/01 12:00:00 [INFO] Server started",
                     "2025/01/01 12:00:01 [INFO] Xray is running"
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/vk-turn-proxy/logs/{count}": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Return the last N vk-turn-proxy log lines (newest first), tailed from the end of the panel log so large logs stay fast.",
+        "operationId": "post_panel_api_server_vk_turn_proxy_logs_count",
+        "parameters": [
+          {
+            "name": "count",
+            "in": "path",
+            "required": true,
+            "description": "Number of trailing log lines.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/vk-turn-proxy/status": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Return the vk-turn-proxy runtime status (state, running count, installed version).",
+        "operationId": "get_panel_api_server_vk_turn_proxy_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/vk-turn-proxy/versions": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "List the vk-turn-proxy binary release tags available for install (cached).",
+        "operationId": "get_panel_api_server_vk_turn_proxy_versions",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/vk-turn-proxy/start": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Start the vk-turn-proxy sidecar for every enabled vk-turn-proxy inbound.",
+        "operationId": "post_panel_api_server_vk_turn_proxy_start",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/vk-turn-proxy/stop": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Stop all running vk-turn-proxy instances.",
+        "operationId": "post_panel_api_server_vk_turn_proxy_stop",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/vk-turn-proxy/restart": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Restart all vk-turn-proxy instances.",
+        "operationId": "post_panel_api_server_vk_turn_proxy_restart",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/vk-turn-proxy/install/{version}": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Download and install the given vk-turn-proxy release tag, then restart the sidecar.",
+        "operationId": "post_panel_api_server_vk_turn_proxy_install_version",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "Release tag to install, or \"latest\".",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/vk-turn-proxy/upload": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Upload a custom vk-turn-proxy binary (multipart form field \"binary\") and install it.",
+        "operationId": "post_panel_api_server_vk_turn_proxy_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
                 }
               }
             }

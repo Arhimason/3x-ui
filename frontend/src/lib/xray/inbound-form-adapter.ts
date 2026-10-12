@@ -11,6 +11,7 @@ import {
   ShadowsocksClientSchema,
   TrojanClientSchema,
   TuicClientSchema,
+  VkTurnProxyClientSchema,
   VlessClientSchema,
   VmessClientSchema,
   WireguardClientSchema,
@@ -276,6 +277,8 @@ function clientSchemaForProtocol(protocol: string): z.ZodType | null {
       return AmneziawgClientSchema;
     case 'tuic':
       return TuicClientSchema;
+    case 'vk-turn-proxy':
+      return VkTurnProxyClientSchema;
     default:
       return null;
   }

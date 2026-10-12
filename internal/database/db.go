@@ -105,6 +105,9 @@ func migrateOutboundSubscriptionUserAgentColumn() error {
 }
 
 func initModels() error {
+	if err := migrateLegacyApiTokensTable(); err != nil {
+		return fmt.Errorf("migrate legacy api_tokens table: %w", err)
+	}
 	if err := migrateClientTrafficLastSubFetchColumn(); err != nil {
 		return err
 	}
@@ -121,7 +124,7 @@ func initModels() error {
 				log.Printf("Ignoring duplicate column during auto migration for %T: %v", mdl, err)
 				continue
 			}
-			log.Printf("Error auto migrating model: %v", err)
+			log.Printf("Error auto migrating model %T: %v", mdl, err)
 			return err
 		}
 	}
@@ -222,6 +225,59 @@ func dropLegacyForeignKeys() error {
 		return err
 	}
 	return nil
+}
+
+// migrateLegacyApiTokensTable moves aside a pre-v3 api_tokens table so AutoMigrate
+// can create the current ApiToken schema (name/token/enabled) fresh. The legacy
+// 2.x table used a different, SHA-256 "token_hash" auth schema (user_id/token_hash/
+// preview/last_used_at/updated_at) that the current code cannot reuse, and AutoMigrate
+// would otherwise crash trying to ADD the NOT NULL "token" column to it ("Cannot add a
+// NOT NULL column with default value NULL"). The legacy rows are preserved in
+// api_tokens_legacy_v2 as a backup. Idempotent: once api_tokens has the new schema this
+// is a no-op. The rename SQL is portable across SQLite and PostgreSQL.
+func migrateLegacyApiTokensTable() error {
+	if !db.Migrator().HasTable(&model.ApiToken{}) {
+		return nil
+	}
+	// Only act on the legacy schema: it has token_hash and lacks the new token column.
+	if !db.Migrator().HasColumn(&model.ApiToken{}, "token_hash") ||
+		db.Migrator().HasColumn(&model.ApiToken{}, "token") {
+		return nil
+	}
+	const backup = "api_tokens_legacy_v2"
+	if db.Migrator().HasTable(backup) {
+		// A backup from a prior run already exists; drop the incompatible legacy table.
+		return db.Exec("DROP TABLE api_tokens").Error
+	}
+	return db.Exec("ALTER TABLE api_tokens RENAME TO " + backup).Error
+}
+
+// migrateVKTurnAcceptClientKeysDefaultOn forces wrapAcceptClientKeys=true on every
+// existing vk-turn-proxy inbound once (the field default flipped to ON). Guarded by
+// HistoryOfSeeders so a later user opt-out is not re-enabled on the next restart.
+// MUST run as a seeder from runSeeders (not as an initModels migration): writing a
+// HistoryOfSeeders row before runSeeders' fresh-DB check (isTableEmpty("history_of_seeders"))
+// would flip a brand-new DB to the non-fresh path and make the deferred seeders
+// (HostsFromExternalProxy etc.) run prematurely on an empty DB.
+func migrateVKTurnAcceptClientKeysDefaultOn() error {
+	const seederName = "VKTurnAcceptClientKeysDefaultOn"
+	var history []string
+	if err := db.Model(&model.HistoryOfSeeders{}).Pluck("seeder_name", &history).Error; err != nil {
+		return err
+	}
+	if slices.Contains(history, seederName) {
+		return nil
+	}
+	var sql string
+	if IsPostgres() {
+		sql = `UPDATE inbounds SET settings = jsonb_set(settings::jsonb, '{wrapAcceptClientKeys}', 'true'::jsonb)::text WHERE protocol = ?`
+	} else {
+		sql = `UPDATE inbounds SET settings = json_set(settings, '$.wrapAcceptClientKeys', json('true')) WHERE protocol = ?`
+	}
+	if err := db.Exec(sql, model.VKTurnProxy).Error; err != nil {
+		return err
+	}
+	return db.Create(&model.HistoryOfSeeders{SeederName: seederName}).Error
 }
 
 type sqliteIndexListRow struct {
@@ -372,7 +428,6 @@ func migrateClientEmailLowerIndex() error {
 	}
 	return db.Exec("CREATE INDEX IF NOT EXISTS idx_clients_email_lower ON clients (LOWER(email))").Error
 }
-
 func migrateHostVerifyPeerCertByNameColumn() error {
 	if !db.Migrator().HasColumn(&model.Host{}, "verify_peer_cert_by_name") {
 		return nil
@@ -1254,7 +1309,7 @@ func runSeeders(isUsersEmpty bool) error {
 	}
 
 	if empty && isUsersEmpty {
-		seeders := []string{"UserPasswordHash", "ClientsTable", "InboundClientsArrayFix", "InboundClientTgIdFix2", "InboundClientSubIdFix", "FreedomFinalRulesReverseFix", "FreedomFinalRulesPrivateEgressBlock", "UppercaseFreedomFinalRulesFix", "InboundRealityFinalmaskTcpStrip", "ApiTokensHash", "LegacyProxySettingsCleanup", "OutboundRemovedKeysFix", "FreedomDomainStrategyFix", "DNSOutboundLegacyKeysFix", "DNSOutboundQTypeZeroFix", "WireguardPeersToClients", "MtprotoSecretsToClients", "NodeInboundsAdopted", "ResetIpLimitNoFail2ban"}
+		seeders := []string{"UserPasswordHash", "ClientsTable", "InboundClientsArrayFix", "InboundClientTgIdFix2", "InboundClientSubIdFix", "FreedomFinalRulesReverseFix", "FreedomFinalRulesPrivateEgressBlock", "UppercaseFreedomFinalRulesFix", "InboundRealityFinalmaskTcpStrip", "ApiTokensHash", "LegacyProxySettingsCleanup", "OutboundRemovedKeysFix", "FreedomDomainStrategyFix", "DNSOutboundLegacyKeysFix", "DNSOutboundQTypeZeroFix", "WireguardPeersToClients", "MtprotoSecretsToClients", "NodeInboundsAdopted", "ResetIpLimitNoFail2ban", "VKTurnAcceptClientKeysDefaultOn"}
 		for _, name := range seeders {
 			if err := db.Create(&model.HistoryOfSeeders{SeederName: name}).Error; err != nil {
 				return err
@@ -1403,10 +1458,18 @@ func runSeeders(isUsersEmpty bool) error {
 		return err
 	}
 
+	if err := migrateVKTurnAcceptClientKeysDefaultOn(); err != nil {
+		return err
+	}
+
 	if err := resetIpLimitsWithoutFail2ban(); err != nil {
 		return err
 	}
 
+	// Self-gated on the "WireguardPeersToClients" row. Destructive by design: it
+	// rewrites settings.peers into settings.clients and drops the inline list, so
+	// everything that touches WireGuard peers (including the vk-turn-proxy peer
+	// mirroring) must read the clients model.
 	if err := seedWireguardPeersToClients(); err != nil {
 		return err
 	}

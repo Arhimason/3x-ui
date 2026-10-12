@@ -751,12 +751,18 @@ func main() {
 		} else {
 			updateCert(webCertFile, webKeyFile)
 		}
+	case "grpc-connect":
+		grpcConnect(os.Args[2:])
 	default:
-		fmt.Println("Invalid subcommands")
-		fmt.Println()
+		// Exit non-zero: automation (the panel's connect.sh) decides success from the
+		// exit code, and a silent 0 here made an unknown subcommand on an old build
+		// look like a completed setup.
+		fmt.Fprintln(os.Stderr, "Invalid subcommands")
+		fmt.Fprintln(os.Stderr)
 		runCmd.Usage()
-		fmt.Println()
+		fmt.Fprintln(os.Stderr)
 		settingCmd.Usage()
+		os.Exit(1)
 	}
 }
 
@@ -768,5 +774,33 @@ Commands:
     migrate-db     SQLite <-> .dump (--dump/--restore) or copy into PostgreSQL (--dsn)
     encrypt-tokens encrypt node bearer tokens with the configured active key
     setting        set settings
+    grpc-connect   register this node with a panel management gRPC endpoint
 `
+}
+
+// grpcConnect wires this 3x-ui to a wingsv panel: enable the management gRPC,
+// register the panel token, and point vk-turn inbounds at the panel. Usage:
+//
+//	x-ui grpc-connect <panel_grpc> <token> <node-id> [grpc-listen]
+func grpcConnect(args []string) {
+	// Every failure path exits non-zero so the caller can tell a real setup from a
+	// no-op; printing an error and returning 0 is what made a failed connect look
+	// like a success.
+	if len(args) < 3 {
+		fmt.Fprintln(os.Stderr, "usage: x-ui grpc-connect <panel_grpc> <token> <node-id> [grpc-listen]")
+		os.Exit(1)
+	}
+	if err := database.InitDB(config.GetDBPath()); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	grpcListen := ""
+	if len(args) >= 4 {
+		grpcListen = args[3]
+	}
+	if err := service.GRPCConnect(args[0], args[1], args[2], grpcListen); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Println("done - restart x-ui for the gRPC listener to come up")
 }

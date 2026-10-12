@@ -24,7 +24,9 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/sys"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/tokenaead"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/controller"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/grpcapi"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/job"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/locale"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/middleware"
@@ -43,6 +45,8 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 //go:embed translation/*
@@ -114,6 +118,8 @@ func EmbeddedDist() embed.FS {
 type Server struct {
 	httpServer *http.Server
 	listener   net.Listener
+
+	grpcServer *grpc.Server
 
 	index *controller.IndexController
 	panel *controller.XUIController
@@ -355,6 +361,17 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	_, _ = s.cron.AddJob(cadenceNodeHeartbeat, job.NewNodeHeartbeatJob())
 
 	_, _ = s.cron.AddJob(cadenceNodeTraffic, job.NewNodeTrafficSyncJob())
+
+	// Keep the vk-turn-proxy sidecar reconciled with its inbounds: starts
+	// missing instances, stops orphaned ones, restarts on settings drift.
+	_, _ = s.cron.AddFunc("@every 5s", func() {
+		if err := service.VKTurnProxyRuntime().ReconcileClientPeers(); err != nil {
+			logger.Debug("vk-turn-proxy reconcile client peers:", err)
+		}
+		if err := service.VKTurnProxyRuntime().EnsureRunning(); err != nil {
+			logger.Debug("vk-turn-proxy ensure running:", err)
+		}
+	})
 
 	// Outbound subscription auto-refresh (respects per-sub updateInterval)
 	_, _ = s.cron.AddJob(cadenceOutboundSub, job.NewOutboundSubscriptionJob())
@@ -654,6 +671,10 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 
 	go network.ServeHTTP(s.httpServer, listener, "Web server")
 
+	if err := s.startGRPC(); err != nil {
+		logger.Warning("gRPC panel API not started:", err)
+	}
+
 	// Create event bus before startTask so jobs can use it
 	s.bus = eventbus.New(eventbus.DefaultBufferSize)
 	service.SetEventBus(s.bus)
@@ -775,6 +796,49 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 }
 
 // Stop gracefully shuts down the web server, stops Xray, cron jobs, and Telegram bot.
+func (s *Server) startGRPC() error {
+	addr := config.GetGRPCListen()
+	if addr == "" {
+		// Fall back to the persisted setting so `x-ui grpc-connect` can enable the
+		// panel API without editing the service environment.
+		if stored, err := s.settingService.GetGRPCListen(); err == nil {
+			addr = strings.TrimSpace(stored)
+		}
+	}
+	if addr == "" {
+		// Say so: this used to return silently, so "the panel cannot reach the node"
+		// and "the listener was never configured" looked identical in the log.
+		logger.Info("gRPC panel API disabled: no grpc listen address configured (x-ui grpc-connect sets one)")
+		return nil
+	}
+	// The management channel is keyed by the panel token, not by X.509. 3x-ui has
+	// no certificate of its own to offer the panel, and reusing the web cert made
+	// this listener hostage to it: with no cert it fell back to plaintext, and with
+	// a cert that failed to load it did not come up at all while the web panel kept
+	// serving. Token-derived AES-256-GCM removes both failure modes and, unlike the
+	// panel's previous InsecureSkipVerify dial, actually authenticates the peer -
+	// a wrong token cannot decrypt the stream.
+	secret, err := (&panel.ApiTokenService{}).TransportSecret(service.PanelApiTokenName)
+	if err != nil || strings.TrimSpace(secret) == "" {
+		return fmt.Errorf("no enabled %q api token to key the management gRPC; run: x-ui grpc-connect <panel_grpc> <token> <node-id>", service.PanelApiTokenName)
+	}
+	// Both derivations are accepted while the fleet moves to SHA-512. The
+	// transport has no handshake to negotiate with, so the listener resolves it
+	// from the first record instead; that is what lets nodes and panels update on
+	// their own schedules.
+	creds := credentials.TransportCredentials(tokenaead.ServerAny(secret, tokenaead.SHA512, tokenaead.Legacy256))
+	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", addr)
+	if err != nil {
+		return err
+	}
+	s.grpcServer = grpcapi.NewServer(creds, s.xrayService.SetToNeedRestart)
+	go func() {
+		_ = s.grpcServer.Serve(lis)
+	}()
+	logger.Info("gRPC panel API running on", lis.Addr())
+	return nil
+}
+
 func (s *Server) Stop() error {
 	return s.stop(true, true)
 }
@@ -791,6 +855,9 @@ func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 		amneziawgnet.GetManager().StopAll()
 		tuic.GetManager().StopAll()
 		amneziawgnet.GetOutboundManager().StopAll()
+	}
+	if err := service.VKTurnProxyRuntime().ShutdownForRestart(); err != nil {
+		logger.Warning("vk-turn-proxy shutdown failed:", err)
 	}
 	if s.cron != nil {
 		s.cron.Stop()
@@ -813,6 +880,9 @@ func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 	// Gracefully stop WebSocket hub
 	if s.wsHub != nil {
 		s.wsHub.Stop()
+	}
+	if s.grpcServer != nil {
+		s.grpcServer.GracefulStop()
 	}
 	var err1 error
 	var err2 error

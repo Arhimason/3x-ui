@@ -139,7 +139,7 @@ export default function SubPage() {
             <span className="sub-tab-count">{links.length}</span>
           </>
         ),
-        children: <SubConfigsTab links={links} onCopy={copy} />,
+        children: <SubConfigsTab links={links} emails={linkEmails} onCopy={copy} />,
       });
     }
     return items;

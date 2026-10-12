@@ -10,6 +10,7 @@ import { TrojanInboundSettingsSchema } from './trojan';
 import { TuicInboundSettingsSchema } from './tuic';
 import { TunInboundSettingsSchema } from './tun';
 import { TunnelInboundSettingsSchema } from './tunnel';
+import { VkTurnProxyInboundSettingsSchema } from './vk-turn-proxy';
 import { VlessInboundSettingsSchema } from './vless';
 import { VmessInboundSettingsSchema } from './vmess';
 import { WireguardInboundSettingsSchema } from './wireguard';
@@ -24,6 +25,7 @@ export * from './trojan';
 export * from './tuic';
 export * from './tun';
 export * from './tunnel';
+export * from './vk-turn-proxy';
 export * from './vless';
 export * from './vmess';
 export * from './wireguard';
@@ -47,5 +49,6 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('mtproto'), settings: MtprotoInboundSettingsSchema }),
   z.object({ protocol: z.literal('amneziawg'), settings: AmneziawgInboundSettingsSchema }),
   z.object({ protocol: z.literal('tuic'), settings: TuicInboundSettingsSchema }),
+  z.object({ protocol: z.literal('vk-turn-proxy'), settings: VkTurnProxyInboundSettingsSchema }),
 ]);
 export type InboundSettings = z.infer<typeof InboundSettingsSchema>;

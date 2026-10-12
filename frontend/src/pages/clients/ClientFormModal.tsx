@@ -64,6 +64,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'mtproto',
   'amneziawg',
   'tuic',
+  'vk-turn-proxy',
 ]);
 
 const CLIENT_FORM_MODAL_Z_INDEX = 1000;

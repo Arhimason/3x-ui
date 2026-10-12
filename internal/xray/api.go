@@ -43,8 +43,9 @@ import (
 // Compiled once at package load: GetTraffic runs on every traffic-stats tick,
 // so recompiling these per call is wasted work.
 var (
-	trafficRegex       = regexp.MustCompile(`(inbound|outbound)>>>([^>]+)>>>traffic>>>(downlink|uplink)`)
-	clientTrafficRegex = regexp.MustCompile(`user>>>([^>]+)>>>traffic>>>(downlink|uplink)`)
+	trafficRegex              = regexp.MustCompile(`(inbound|outbound)>>>([^>]+)>>>traffic>>>(downlink|uplink)`)
+	clientTrafficRegex        = regexp.MustCompile(`user>>>([^>]+)>>>traffic>>>(downlink|uplink)`)
+	wireGuardPeerTrafficRegex = regexp.MustCompile(`wireguard>>>([^>]+)>>>([^>]+)>>>traffic>>>(downlink|uplink)`)
 )
 
 // XrayAPI is a gRPC client for managing Xray core configuration, inbounds, outbounds, and statistics.
@@ -757,26 +758,29 @@ func (x *XrayAPI) RemoveUser(inboundTag, email string) error {
 // name the panel has not seen — xray creates a counter on a user's first use —
 // and a counter that moved backwards because the core restarted both count
 // from zero, so no client's traffic is dropped for a whole polling interval.
-func (x *XrayAPI) GetTraffic() ([]*Traffic, []*ClientTraffic, error) {
+// The third slice is per-peer WireGuard traffic, used to attribute vk-turn-proxy
+// clients that ride a WireGuard inbound.
+func (x *XrayAPI) GetTraffic() ([]*Traffic, []*ClientTraffic, []*WireGuardPeerTraffic, error) {
 	if x.grpcClient == nil {
-		return nil, nil, common.NewError("xray api is not initialized")
+		return nil, nil, nil, common.NewError("xray api is not initialized")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	if x.StatsServiceClient == nil {
-		return nil, nil, common.NewError("xray StatusServiceClient is not initialized")
+		return nil, nil, nil, common.NewError("xray StatusServiceClient is not initialized")
 	}
 
 	resp, err := (*x.StatsServiceClient).QueryStats(ctx, &statsService.QueryStatsRequest{Reset_: false})
 	if err != nil {
 		logger.Debug("Failed to query Xray stats:", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	tagTrafficMap := make(map[string]*Traffic)
 	emailTrafficMap := make(map[string]*ClientTraffic)
+	wireGuardPeerTrafficMap := make(map[string]*WireGuardPeerTraffic)
 
 	baselinePass := len(x.StatsLastValues) == 0
 
@@ -794,6 +798,8 @@ func (x *XrayAPI) GetTraffic() ([]*Traffic, []*ClientTraffic, error) {
 			processTraffic(matches, value, tagTrafficMap)
 		} else if matches := clientTrafficRegex.FindStringSubmatch(stat.Name); len(matches) == 3 {
 			processClientTraffic(matches, value, emailTrafficMap)
+		} else if matches := wireGuardPeerTrafficRegex.FindStringSubmatch(stat.Name); len(matches) == 4 {
+			processWireGuardPeerTraffic(matches, value, wireGuardPeerTrafficMap)
 		}
 	}
 
@@ -809,7 +815,31 @@ func (x *XrayAPI) GetTraffic() ([]*Traffic, []*ClientTraffic, error) {
 		x.StatsLastValues = pruned
 	}
 
-	return mapToSlice(tagTrafficMap), mapToSlice(emailTrafficMap), nil
+	return mapToSlice(tagTrafficMap), mapToSlice(emailTrafficMap), mapToSlice(wireGuardPeerTrafficMap), nil
+}
+
+// processWireGuardPeerTraffic aggregates a wireguard peer traffic stat keyed by
+// inbound tag plus peer public key into wireGuardPeerTrafficMap.
+func processWireGuardPeerTraffic(matches []string, value int64, wireGuardPeerTrafficMap map[string]*WireGuardPeerTraffic) {
+	inboundTag := matches[1]
+	publicKey := matches[2]
+	isDown := matches[3] == "downlink"
+	mapKey := inboundTag + "\x00" + publicKey
+
+	traffic, ok := wireGuardPeerTrafficMap[mapKey]
+	if !ok {
+		traffic = &WireGuardPeerTraffic{
+			InboundTag: inboundTag,
+			PublicKey:  publicKey,
+		}
+		wireGuardPeerTrafficMap[mapKey] = traffic
+	}
+
+	if isDown {
+		traffic.Down = value
+	} else {
+		traffic.Up = value
+	}
 }
 
 // OnlineIP is one source address of a live connection, with the unix time (seconds)

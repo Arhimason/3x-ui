@@ -76,5 +76,9 @@ export const WireguardInboundSettingsSchema = z.object({
   // fall back to 10.0.0.0/24 server-side).
   subnetIp: z.string().default(''),
   subnetCidr: optionalClearedInt(z.number().int().min(1).max(32)),
+  // Pin this inbound's egress to a specific outbound/balancer tag; the backend
+  // turns it into a routing rule so it does not fall back to the default
+  // (first) outbound. Empty leaves it on the default.
+  outboundTag: z.string().optional(),
 });
 export type WireguardInboundSettings = z.infer<typeof WireguardInboundSettingsSchema>;

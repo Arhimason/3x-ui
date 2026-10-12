@@ -68,7 +68,7 @@ func TestGetTrafficFirstPollIsBaselineOnly(t *testing.T) {
 		{stat("user>>>alice>>>traffic>>>uplink", 5000)},
 	})
 
-	_, clients, err := api.GetTraffic()
+	_, clients, _, err := api.GetTraffic()
 	if err != nil {
 		t.Fatalf("GetTraffic: %v", err)
 	}
@@ -93,10 +93,10 @@ func TestGetTrafficCountsNewStatFromZero(t *testing.T) {
 		},
 	})
 
-	if _, _, err := api.GetTraffic(); err != nil {
+	if _, _, _, err := api.GetTraffic(); err != nil {
 		t.Fatalf("GetTraffic (baseline): %v", err)
 	}
-	_, clients, err := api.GetTraffic()
+	_, clients, _, err := api.GetTraffic()
 	if err != nil {
 		t.Fatalf("GetTraffic: %v", err)
 	}
@@ -128,13 +128,13 @@ func TestGetTrafficCountsAfterCounterReset(t *testing.T) {
 		{stat("user>>>alice>>>traffic>>>uplink", 250)},
 	})
 
-	if _, _, err := api.GetTraffic(); err != nil {
+	if _, _, _, err := api.GetTraffic(); err != nil {
 		t.Fatalf("GetTraffic (baseline): %v", err)
 	}
-	if _, _, err := api.GetTraffic(); err != nil {
+	if _, _, _, err := api.GetTraffic(); err != nil {
 		t.Fatalf("GetTraffic (delta): %v", err)
 	}
-	_, clients, err := api.GetTraffic()
+	_, clients, _, err := api.GetTraffic()
 	if err != nil {
 		t.Fatalf("GetTraffic (after reset): %v", err)
 	}
@@ -169,10 +169,10 @@ func TestGetTrafficSkipsAPIInboundAndPrunes(t *testing.T) {
 		},
 	})
 
-	if _, _, err := api.GetTraffic(); err != nil {
+	if _, _, _, err := api.GetTraffic(); err != nil {
 		t.Fatalf("GetTraffic (baseline): %v", err)
 	}
-	tags, _, err := api.GetTraffic()
+	tags, _, _, err := api.GetTraffic()
 	if err != nil {
 		t.Fatalf("GetTraffic: %v", err)
 	}

@@ -66,6 +66,7 @@ import {
   TuicFields,
   TunFields,
   TunnelFields,
+  VkTurnProxyFields,
   VlessFields,
   WireguardFields,
 } from './protocols';
@@ -810,6 +811,8 @@ export default function InboundFormModal({
 
       {protocol === Protocols.MTPROTO && <MtprotoFields />}
 
+      {protocol === Protocols.VK_TURN_PROXY && <VkTurnProxyFields />}
+
       {protocol === Protocols.SHADOWSOCKS && <ShadowsocksFields isSSWith2022={isSSWith2022} />}
 
       {protocol === Protocols.VLESS && (
@@ -1140,6 +1143,7 @@ export default function InboundFormModal({
                     Protocols.MTPROTO,
                     Protocols.AMNEZIAWG,
                     Protocols.TUIC,
+                    Protocols.VK_TURN_PROXY,
                   ] as string[]
                 ).includes(protocol) || isFallbackHost
                   ? [

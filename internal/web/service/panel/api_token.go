@@ -228,6 +228,20 @@ func requireExpectedScope(expectedScope string) (string, error) {
 // SHA-256 hash matches the presented bearer value, or (nil,false). The loop
 // scans every enabled row with constant-time compares, then applies expiry and
 // scope checks to avoid treating corrupt values as admin.
+// TransportSecret returns the stored SHA-256 hash of the named token, which is
+// the shared secret the management gRPC keys its AES-256-GCM transport with.
+func (s *ApiTokenService) TransportSecret(name string) (string, error) {
+	var row model.ApiToken
+	err := database.GetDB().
+		Model(model.ApiToken{}).
+		Where("name = ? AND enabled = ?", name, true).
+		First(&row).Error
+	if err != nil {
+		return "", err
+	}
+	return row.Token, nil
+}
+
 func (s *ApiTokenService) MatchToken(presented string) (*model.ApiToken, bool) {
 	if presented == "" {
 		return nil, false

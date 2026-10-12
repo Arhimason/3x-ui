@@ -389,7 +389,7 @@ func TestXrayAPI_E2E_NewClientTrafficIsCounted(t *testing.T) {
 	})
 
 	// Baseline poll: the client's counter does not exist yet.
-	if _, _, err := c.api.GetTraffic(); err != nil {
+	if _, _, _, err := c.api.GetTraffic(); err != nil {
 		t.Fatalf("GetTraffic (baseline): %v", err)
 	}
 
@@ -412,7 +412,7 @@ func TestXrayAPI_E2E_NewClientTrafficIsCounted(t *testing.T) {
 	}
 	time.Sleep(500 * time.Millisecond)
 
-	_, clients, err := c.api.GetTraffic()
+	_, clients, _, err := c.api.GetTraffic()
 	if err != nil {
 		t.Fatalf("GetTraffic: %v", err)
 	}

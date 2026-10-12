@@ -4,11 +4,13 @@ import { useFormContext, useWatch } from 'react-hook-form';
 
 import { HeaderMapEditor } from '@/components/form';
 import { FormField } from '@/components/form/rhf';
+import { useOutboundTags } from '@/api/queries/useOutboundTags';
 
 const MASQ_PATH = ['streamSettings', 'hysteriaSettings', 'masquerade'];
 
 export default function HysteriaFields() {
   const { t } = useTranslation();
+  const { data: outboundTags } = useOutboundTags();
   const { control, setValue } = useFormContext();
   const masq = useWatch({ control, name: 'streamSettings.hysteriaSettings.masquerade' }) as
     | { type?: string }
@@ -117,6 +119,18 @@ export default function HysteriaFields() {
           )}
         </>
       )}
+      <FormField
+        name={['settings', 'outboundTag']}
+        label={t('pages.inbounds.form.egressOutbound')}
+        tooltip={t('pages.inbounds.form.egressOutboundHint')}
+      >
+        <Select
+          allowClear
+          showSearch
+          placeholder={t('pages.inbounds.form.egressOutboundPlaceholder')}
+          options={(outboundTags ?? []).map((tag) => ({ value: tag, label: tag }))}
+        />
+      </FormField>
     </>
   );
 }

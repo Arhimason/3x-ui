@@ -28,6 +28,7 @@ import VitalTile from './VitalTile';
 import ThroughputCard from './ThroughputCard';
 import ConnectionsCard from './ConnectionsCard';
 import SystemStrip from './SystemStrip';
+import VkTurnProxyStatusCard from './VkTurnProxyStatusCard';
 import { mean, peak, useOverviewHistory } from './useOverviewHistory';
 import type { PanelUpdateInfo } from './PanelUpdateModal';
 const JsonEditor = lazy(() => import('@/components/form/JsonEditor'));
@@ -38,6 +39,8 @@ const SystemHistoryModal = lazy(() => import('./SystemHistoryModal'));
 const XrayMetricsModal = lazy(() => import('./XrayMetricsModal'));
 const XrayLogModal = lazy(() => import('./XrayLogModal'));
 const AmneziaWGLogModal = lazy(() => import('./AmneziaWGLogModal'));
+const VkTurnProxyLogModal = lazy(() => import('./VkTurnProxyLogModal'));
+const VkTurnProxyManageModal = lazy(() => import('./VkTurnProxyManageModal'));
 const VersionModal = lazy(() => import('./VersionModal'));
 import './IndexPage.css';
 
@@ -69,6 +72,8 @@ export default function IndexPage() {
   const [xrayMetricsOpen, setXrayMetricsOpen] = useState(false);
   const [xrayLogsOpen, setXrayLogsOpen] = useState(false);
   const [amneziawgLogsOpen, setAmneziawgLogsOpen] = useState(false);
+  const [vkTurnLogsOpen, setVkTurnLogsOpen] = useState(false);
+  const [vkTurnManageOpen, setVkTurnManageOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
   const [configTextOpen, setConfigTextOpen] = useState(false);
   const [configText, setConfigText] = useState('');
@@ -108,6 +113,16 @@ export default function IndexPage() {
 
   const restartXray = useCallback(async () => {
     await HttpUtil.post('/panel/api/server/restartXrayService');
+    await refresh();
+  }, [refresh]);
+
+  const stopVkTurn = useCallback(async () => {
+    await HttpUtil.post('/panel/api/server/vk-turn-proxy/stop');
+    await refresh();
+  }, [refresh]);
+
+  const restartVkTurn = useCallback(async () => {
+    await HttpUtil.post('/panel/api/server/vk-turn-proxy/restart');
     await refresh();
   }, [refresh]);
 
@@ -291,6 +306,14 @@ export default function IndexPage() {
                     showIp={showIp}
                     onToggleIp={() => setShowIp((v) => !v)}
                   />
+                  <VkTurnProxyStatusCard
+                    status={status}
+                    isMobile={isMobile}
+                    onStop={stopVkTurn}
+                    onRestart={restartVkTurn}
+                    onOpenLogs={() => setVkTurnLogsOpen(true)}
+                    onOpenManage={() => setVkTurnManageOpen(true)}
+                  />
                 </div>
               )}
             </Spin>
@@ -333,6 +356,16 @@ export default function IndexPage() {
         </LazyMount>
         <LazyMount when={amneziawgLogsOpen}>
           <AmneziaWGLogModal open={amneziawgLogsOpen} onClose={() => setAmneziawgLogsOpen(false)} />
+        </LazyMount>
+        <LazyMount when={vkTurnLogsOpen}>
+          <VkTurnProxyLogModal open={vkTurnLogsOpen} onClose={() => setVkTurnLogsOpen(false)} />
+        </LazyMount>
+        <LazyMount when={vkTurnManageOpen}>
+          <VkTurnProxyManageModal
+            open={vkTurnManageOpen}
+            onClose={() => setVkTurnManageOpen(false)}
+            onBusy={setBusy}
+          />
         </LazyMount>
         <LazyMount when={versionOpen}>
           <VersionModal

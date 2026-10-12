@@ -14,10 +14,11 @@ import SubQrButton from './SubQrButton';
 
 interface SubConfigsTabProps {
   links: string[];
+  emails?: string[];
   onCopy: (value: string, toast?: string) => void;
 }
 
-export default function SubConfigsTab({ links, onCopy }: SubConfigsTabProps) {
+export default function SubConfigsTab({ links, emails, onCopy }: SubConfigsTabProps) {
   const { t } = useTranslation();
 
   return (
@@ -32,7 +33,7 @@ export default function SubConfigsTab({ links, onCopy }: SubConfigsTabProps) {
       </div>
       {links.map((link, idx) => {
         const parts = parseLinkParts(link);
-        const rowTitle = parts?.remark || `Link ${idx + 1}`;
+        const rowTitle = parts?.remark || emails?.[idx] || `Link ${idx + 1}`;
         const isWireguardLink = link.startsWith('wireguard://') || link.startsWith('wg://');
         const isAmneziawgLink = link.startsWith('vpn://');
         return (

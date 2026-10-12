@@ -75,9 +75,26 @@ func (j *XrayTrafficJob) Run() {
 	if !j.xrayService.IsXrayRunning() {
 		return
 	}
-	traffics, clientTraffics, err := j.xrayService.GetXrayTraffic()
+	traffics, clientTraffics, wireGuardPeerTraffics, err := j.xrayService.GetXrayTraffic()
 	if err != nil {
 		return
+	}
+	// Map wireguard peer traffic deltas onto the vk-turn-proxy clients that own
+	// those peers, so AddTraffic accounts them and enforces per-client quotas.
+	if len(wireGuardPeerTraffics) > 0 {
+		if vkClientTraffics, vkErr := j.inboundService.BuildVKTurnProxyClientTraffics(wireGuardPeerTraffics); vkErr != nil {
+			logger.Warning("build vk-turn-proxy client traffic failed:", vkErr)
+		} else if len(vkClientTraffics) > 0 {
+			clientTraffics = append(clientTraffics, vkClientTraffics...)
+			// The relay process is outside xray's stats API, so its inbound tag
+			// never reports traffic. Mirror the per-client deltas into each
+			// vk-turn-proxy inbound's up/down so the inbound total is non-zero.
+			if vkInboundTraffics, vkErr := j.inboundService.BuildVKTurnProxyInboundTraffics(vkClientTraffics); vkErr != nil {
+				logger.Warning("build vk-turn-proxy inbound traffic failed:", vkErr)
+			} else if len(vkInboundTraffics) > 0 {
+				traffics = append(traffics, vkInboundTraffics...)
+			}
+		}
 	}
 	needRestart0, clientsDisabled, err := j.inboundService.AddTraffic(traffics, clientTraffics)
 	if err != nil {

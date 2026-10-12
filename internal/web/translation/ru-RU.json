@@ -86,6 +86,7 @@
     "expiry": "Срок действия",
     "totalQuota": "Общий лимит",
     "individualLinks": "Индивидуальные ссылки",
+    "recommended": "Рекомендуется",
     "active": "Активна",
     "inactive": "Неактивна",
     "unlimited": "Неограниченно",
@@ -290,7 +291,23 @@
       "accessBlocked": "ЗАБЛОКИРОВАНО",
       "accessProxy": "ЧЕРЕЗ ПРОКСИ",
       "importKeepHostSettings": "Сохранить настройки этой машины",
-      "importKeepHostSettingsDesc": "Оставляет адреса и порты этой панели, базовый путь, сертификаты и удостоверение для узлов вместо тех, что в загруженном файле."
+      "importKeepHostSettingsDesc": "Оставляет адреса и порты этой панели, базовый путь, сертификаты и удостоверение для узлов вместо тех, что в загруженном файле.",
+      "vkTurnLogs": "Логи VK TURN",
+      "vkTurnManage": "Управление VK TURN",
+      "vkTurnStatus": "Статус VK TURN",
+      "vkTurnStatusRunning": "Работает",
+      "vkTurnStatusStop": "Остановлен",
+      "vkTurnStatusError": "Ошибка",
+      "vkTurnStatusUnknown": "Неизвестно",
+      "vkTurnManageTitle": "VK TURN Proxy",
+      "vkTurnInstalled": "Установленная версия",
+      "vkTurnRunningCount": "Запущено",
+      "vkTurnStart": "Запустить",
+      "vkTurnStop": "Остановить",
+      "vkTurnRestart": "Перезапустить",
+      "vkTurnVersions": "Версии",
+      "vkTurnInstallDialog": "Установка vk-turn-proxy",
+      "vkTurnInstallDialogDesc": "Установить версию #version#?"
     },
     "inbounds": {
       "totalDownUp": "Отправлено/получено",
@@ -524,6 +541,9 @@
         "mtgRouteOutbound": "Исходящее",
         "mtgRouteOutboundHint": "Необязательно. Принудительно направить трафик Telegram через это исходящее соединение (или балансировщик). Оставьте пустым, чтобы решали ваши правила маршрутизации.",
         "mtgRouteOutboundPlaceholder": "Использовать правила маршрутизации",
+        "egressOutbound": "Исходящий аутбаунд",
+        "egressOutboundHint": "Необязательно. Принудительно направить трафик этого инбаунда через выбранный аутбаунд (или балансировщик), независимо от порядка аутбаундов. Используйте, чтобы трафик vk-turn-proxy оставался на freedom, когда WARP-аутбаунд стоит первым. Пусто — оставить на дефолтном аутбаунде.",
+        "egressOutboundPlaceholder": "Дефолтный аутбаунд",
         "mtprotoFakeTlsDomainHint": "Домен FakeTLS по умолчанию для генерации секрета нового клиента. Каждый клиент может использовать свой домен.",
         "mtgThrottleMaxConnections": "Макс. подключений",
         "mtgThrottleMaxConnectionsHint": "Ограничение одновременных подключений всех пользователей по справедливому распределению. 0 — отключено.",
@@ -710,6 +730,77 @@
         "keepAlive": "Keep alive",
         "peerNumber": "Peer {n}",
         "peerNumberConfig": "Конфиг Peer {n}"
+      },
+      "stream": {
+        "general": {
+          "request": "Запрос",
+          "response": "Ответ",
+          "name": "Имя",
+          "value": "Значение"
+        },
+        "tcp": {
+          "version": "Версия",
+          "method": "Метод",
+          "path": "Путь",
+          "status": "Статус",
+          "statusDescription": "Описание статуса",
+          "requestHeader": "Заголовок запроса",
+          "responseHeader": "Заголовок ответа"
+        }
+      },
+      "protocols": {
+        "vkTurnProxy": {
+          "forward": "Цель пересылки",
+          "forwardType": "Тип пересылки",
+          "forwardTypes": {
+            "wireguardInbound": "Входящий WireGuard",
+            "hysteria2Inbound": "Входящий Hysteria2",
+            "host": "Произвольный host:port"
+          },
+          "wireguardInbound": "Входящий WireGuard",
+          "hysteria2Inbound": "Входящий Hysteria2",
+          "host": "Хост",
+          "links": "Ссылки VK",
+          "link": "Ссылка",
+          "linkSecondary": "Запасная ссылка",
+          "wgParams": "Параметры WireGuard",
+          "sessionMode": "Режим сессии",
+          "localEndpoint": "Локальный endpoint",
+          "wgDns": "DNS",
+          "wgAllowedIps": "Разрешённые IP",
+          "threads": "Потоки",
+          "credsGroupSize": "Размер группы учётных данных",
+          "useUdp": "Использовать UDP",
+          "noObfuscation": "Без обфускации",
+          "wrap": "WRAP",
+          "wrapMode": "Режим WRAP",
+          "wrapModes": {
+            "off": "Выкл",
+            "optional": "Опционально",
+            "required": "Обязательно"
+          },
+          "wrapCipher": "Шифр WRAP",
+          "wrapKeyHex": "Ключ WRAP (hex)",
+          "wrapAcceptClientKeys": "Принимать ключи клиента",
+          "panel": "Provisioning через панель",
+          "panelGrpc": "gRPC-эндпоинт панели",
+          "panelGrpcHint": "Provisioning-эндпоинт панели wingsv (host:port). Включает self-enroll конфигов по DTLS PROVISION.",
+          "nodeId": "ID ноды",
+          "nodeIdHint": "ID этого реле, как он зарегистрирован в панели (скопируйте из списка нод в панели).",
+          "panelToken": "Токен панели",
+          "panelCaPin": "CA-pin панели",
+          "panelCaPinHint": "Только для self-signed панели: pin вида sha256/<base64>. Для публично доверенной панели оставьте пустым (проверка по системному trust).",
+          "panelInsecure": "Панель без TLS",
+          "panelInsecureHint": "Подключаться к панели по plaintext вместо TLS. Только в доверенной локальной сети.",
+          "clients": "Клиенты",
+          "addClient": "Добавить клиента",
+          "clientNumber": "Клиент {{n}}",
+          "totalGB": "Лимит трафика (ГБ)",
+          "limitIp": "Лимит IP",
+          "peerManaged": "Управляемый peer",
+          "peerManagedHint": "Создаётся автоматически при сохранении",
+          "peerPublicKey": "Публичный ключ peer"
+        }
       },
       "sniffingDestOverride": "Переопределение назначения"
     },
@@ -1975,7 +2066,12 @@
         "subnetCidr": "Маска подсети (CIDR)",
         "allowedIPs": "Разрешенные IP-адреса",
         "endpoint": "Конечная точка",
-        "domainStrategy": "Стратегия домена"
+        "domainStrategy": "Стратегия домена",
+        "psk": "Общий ключ",
+        "domainStrategy": "Стратегия домена",
+        "fixConflicts": "Исправить конфликты",
+        "fixedConflictsTitle": "Исправленные конфликты allowedIP",
+        "noConflicts": "Конфликтов нет"
       },
       "amneziawg": {
         "privateKey": "Приватный ключ",

@@ -98,6 +98,7 @@ describe('buildSubApps', () => {
 
   it('gives every Android app a one-tap import link', () => {
     expect(buildSubApps(sub).android).toEqual([
+      { name: 'WINGS V', url: 'https://github.com/WINGS-N/WINGSV' },
       { name: 'V2Box', url: `v2box://install-sub?url=${encSub}&name=abc` },
       { name: 'V2RayNG', url: `v2rayng://install-config?url=${encSub}` },
       { name: 'Sing-box', url: `sing-box://import-remote-profile?url=${encSub}#Nova%20Net` },
@@ -120,7 +121,7 @@ describe('buildSubApps', () => {
   });
 
   it('names the sing-box profile after the subscription id when there is no title', () => {
-    expect(buildSubApps({ ...sub, subTitle: '' }).android[2].url).toBe(
+    expect(buildSubApps({ ...sub, subTitle: '' }).android[3].url).toBe(
       `sing-box://import-remote-profile?url=${encSub}#abc`,
     );
   });

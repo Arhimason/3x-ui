@@ -204,6 +204,12 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if inbound.Protocol == model.MTProto || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.TUIC {
 			continue
 		}
+		// vk-turn-proxy inbounds are served by the standalone vk-turn-proxy
+		// binary, not by Xray. Emitting them into config.json makes Xray abort
+		// the whole config with "unknown config id: vk-turn-proxy".
+		if inbound.Protocol == model.VKTurnProxy {
+			continue
+		}
 		settings := map[string]any{}
 		_ = json.Unmarshal([]byte(inbound.Settings), &settings)
 		var wireguardClientsByEmail map[string]model.Client
@@ -293,11 +299,20 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 
 		var mutated bool
 		if inbound.Protocol == model.WireGuard {
-			delete(settings, "clients")
-			if wgPeers == nil {
-				wgPeers = []any{}
+			// xray-core's wireguard inbound takes a flat "peers" list, so project the
+			// client rows (wgPeers) into it. settings.peers should normally be empty
+			// now that WireguardPeersToClients has run, but an inbound restored from a
+			// pre-migration backup can still carry the legacy inline list, so UNION the
+			// two by public key rather than letting either side clobber the other -
+			// clobbering would drop forwarded vk-turn-proxy clients from the live
+			// config and kill their connectivity.
+			inlinePeers, _ := settings["peers"].([]any)
+			merged := mergeWireguardConfigPeers(inlinePeers, wgPeers)
+			if merged == nil {
+				merged = []any{}
 			}
-			settings["peers"] = wgPeers
+			delete(settings, "clients")
+			settings["peers"] = merged
 			mutated = true
 		} else {
 			_, hadClients := settings["clients"]
@@ -432,6 +447,22 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 	// lets Xray bind an egress socket to it at all; this call only builds
 	// the Xray-side outbound/routing-rule half.
 	injectAmneziawgV6Egress(xrayConfig, inbounds)
+
+	// Pin WireGuard/Hysteria inbounds (typical vk-turn-proxy forward targets) to
+	// a chosen egress outbound. They are real Xray inbounds, so without a rule
+	// they fall back to the default (first) outbound - adding a WARP outbound on
+	// top then routes their traffic, including vk-turn-proxy relayed traffic,
+	// through WARP and breaks most sites.
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		switch inbound.Protocol {
+		case model.WireGuard, model.Hysteria, model.Hysteria2:
+			injectInboundEgress(xrayConfig, inbound)
+		}
+	}
 
 	// Wire the panel's own HTTP traffic through the configured outbound, after
 	// the subscription merge so subscription outbound tags are valid targets.
@@ -660,6 +691,47 @@ func routingTagIsBalancer(routing map[string]any, tag string) bool {
 // inbound exposes for its mtg sidecar to dial Telegram through. mtg makes plain
 // TCP connections, so UDP is left off (matching the panel egress bridge).
 const mtprotoEgressSocksSettings = `{"auth":"noauth","udp":false}`
+
+// injectInboundEgress pins a real inbound's traffic to a chosen outbound (or
+// balancer) with a routing rule on the inbound tag. Used for WireGuard/Hysteria
+// inbounds (vk-turn-proxy forward targets) so their egress is deterministic
+// regardless of the outbound order, instead of always using the default
+// (first) outbound. The egress outbound is read from the inbound's settings
+// (settings.outboundTag); empty means "leave on the default outbound".
+func injectInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
+	var parsed struct {
+		OutboundTag string `json:"outboundTag"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
+		return
+	}
+	if parsed.OutboundTag == "" || inbound.Tag == "" {
+		return
+	}
+	routing := map[string]any{}
+	if len(cfg.RouterConfig) > 0 {
+		if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+			logger.Warning("inbound egress: routing section is unparsable, skipping rule:", err)
+			return
+		}
+	}
+	rules, _ := routing["rules"].([]any)
+	rule := map[string]any{
+		"type":       "field",
+		"inboundTag": []any{inbound.Tag},
+	}
+	if routingTagIsBalancer(routing, parsed.OutboundTag) {
+		rule["balancerTag"] = parsed.OutboundTag
+	} else {
+		rule["outboundTag"] = parsed.OutboundTag
+	}
+	routing["rules"] = append([]any{rule}, rules...)
+	if newRouting, err := json.Marshal(routing); err == nil {
+		cfg.RouterConfig = json_util.RawMessage(newRouting)
+	} else {
+		logger.Warning("inbound egress: failed to rebuild routing section, skipping rule:", err)
+	}
+}
 
 // injectMtprotoEgress wires one routed mtproto inbound into the generated
 // config after any selected outbound resolves in the final target set. Invalid
@@ -1188,26 +1260,26 @@ func stripDisabledRules(routerCfg json_util.RawMessage) json_util.RawMessage {
 }
 
 // GetXrayTraffic fetches the current traffic statistics from the running Xray process.
-func (s *XrayService) GetXrayTraffic() ([]*xray.Traffic, []*xray.ClientTraffic, error) {
+func (s *XrayService) GetXrayTraffic() ([]*xray.Traffic, []*xray.ClientTraffic, []*xray.WireGuardPeerTraffic, error) {
 	process := currentXrayProcess()
 	if process == nil || !process.IsRunning() {
 		err := errors.New("xray is not running")
 		logger.Debug("Attempted to fetch Xray traffic, but Xray is not running:", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	apiPort := process.GetAPIPort()
 	if err := s.xrayAPI.Init(apiPort); err != nil {
 		logger.Debug("Failed to initialize Xray API:", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer s.xrayAPI.Close()
 
-	traffic, clientTraffic, err := s.xrayAPI.GetTraffic()
+	traffic, clientTraffic, wireGuardPeerTraffic, err := s.xrayAPI.GetTraffic()
 	if err != nil {
 		logger.Debug("Failed to fetch Xray traffic:", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return traffic, clientTraffic, nil
+	return traffic, clientTraffic, wireGuardPeerTraffic, nil
 }
 
 // GetOnlineUsers returns connection-based online users (email + source IPs)
@@ -1688,4 +1760,36 @@ func liftOutboundsXhttpSessionIDKeys(raw json_util.RawMessage) json_util.RawMess
 		return rewritten
 	}
 	return raw
+}
+
+// mergeWireguardConfigPeers unions inline wireguard peers (this fork's
+// vk-turn-proxy managed peers, stored raw in settings.peers) with client-derived
+// peers (the upstream client->peer projection), de-duplicating by public key so a
+// raw client row on a forward-target wireguard inbound never clobbers the managed
+// inline peers. Inline peers win on a public-key collision. Peers without a public
+// key are kept as-is (they cannot collide).
+func mergeWireguardConfigPeers(inline, derived []any) []any {
+	out := make([]any, 0, len(inline)+len(derived))
+	seen := make(map[string]struct{}, len(inline)+len(derived))
+	add := func(list []any) {
+		for _, entry := range list {
+			m, ok := entry.(map[string]any)
+			if !ok {
+				out = append(out, entry)
+				continue
+			}
+			pk, _ := m["publicKey"].(string)
+			pk = strings.TrimSpace(pk)
+			if pk != "" {
+				if _, dup := seen[pk]; dup {
+					continue
+				}
+				seen[pk] = struct{}{}
+			}
+			out = append(out, entry)
+		}
+	}
+	add(inline)
+	add(derived)
+	return out
 }

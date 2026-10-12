@@ -69,8 +69,11 @@ export function buildSubApps({
   const rocketSource = `${subUrl}${subUrl.includes('?') ? '&' : '?'}flag=shadowrocket`;
   const rocketRemark = encodeURIComponent(subTitle || sId || 'Subscription');
 
+  const wingsV = { name: 'WINGS V', url: 'https://github.com/WINGS-N/WINGSV' };
+
   return {
     android: [
+      wingsV,
       v2box,
       { name: 'V2RayNG', url: `v2rayng://install-config?url=${encSub}` },
       singBox,

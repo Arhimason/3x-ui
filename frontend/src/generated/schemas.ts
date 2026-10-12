@@ -2723,7 +2723,8 @@ export const SCHEMAS: Record<string, unknown> = {
           "tun",
           "mtproto",
           "amneziawg",
-          "tuic"
+          "tuic",
+          "vk-turn-proxy"
         ],
         "example": "vless",
         "type": "string"

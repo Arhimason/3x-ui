@@ -102,12 +102,13 @@ type Status struct {
 		Configured bool `json:"configured"`
 		Running    bool `json:"running"`
 	} `json:"amneziawg"`
-	PanelVersion string    `json:"panelVersion"`
-	PanelGuid    string    `json:"panelGuid"`
-	Uptime       uint64    `json:"uptime"`
-	Loads        []float64 `json:"loads"`
-	TcpCount     int       `json:"tcpCount"`
-	UdpCount     int       `json:"udpCount"`
+	VKTurnProxy  VKTurnProxyRuntimeStatus `json:"vkTurnProxy"`
+	PanelVersion string                   `json:"panelVersion"`
+	PanelGuid    string                   `json:"panelGuid"`
+	Uptime       uint64                   `json:"uptime"`
+	Loads        []float64                `json:"loads"`
+	TcpCount     int                      `json:"tcpCount"`
+	UdpCount     int                      `json:"udpCount"`
 	NetIO        struct {
 		Up      uint64 `json:"up"`
 		Down    uint64 `json:"down"`
@@ -640,7 +641,6 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 		status.Xray.ErrorMsg = s.xrayService.GetXrayResult()
 	}
 	status.Xray.Version = s.xrayService.GetXrayVersion()
-
 	var amneziawgCount int64
 	if err := database.GetDB().Model(model.Inbound{}).
 		Where("protocol = ? AND enable = ? AND node_id IS NULL", model.AmneziaWG, true).
@@ -649,7 +649,7 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	}
 	status.AmneziaWG.Configured = amneziawgCount > 0
 	status.AmneziaWG.Running = amneziawgnet.GetManager().HasRunning()
-
+	status.VKTurnProxy = VKTurnProxyRuntime().GetStatus()
 	status.PanelVersion = config.GetPanelVersion()
 	if guid, err := s.settingService.GetPanelGuid(); err == nil {
 		status.PanelGuid = guid
@@ -1166,6 +1166,15 @@ func (s *ServerService) GetLogs(count string, level string, syslog string) []str
 		}
 		lines = strings.Split(out.String(), "\n")
 	} else {
+		// Prefer the rotating panel log file: it survives restarts and holds the
+		// full history, so picking a large count returns real lines instead of
+		// only what the in-memory ring buffer happens to hold this run. Fall back
+		// to the in-memory buffer when the file is missing or unreadable.
+		if c > 0 {
+			if fileLines := tailMatchingLogLines(filepath.Join(config.GetLogFolder(), logger.LogFileName), c, level, ""); len(fileLines) > 0 {
+				return fileLines
+			}
+		}
 		lines = logger.GetLogs(c, level)
 	}
 
