@@ -55,7 +55,7 @@ func (s *InboundService) ReconcileVKTurnProxyClientPeers() error {
 			}
 			active := inbound.Enable && client.Enable && te
 			if active && client.Peer != nil {
-				desiredPresent[publicKey] = vkTurnProxyClientPeerToWireguardPeer(client.Peer, client.Email)
+				desiredPresent[publicKey] = vkTurnProxyClientPeerToWireguardPeer(client)
 			} else {
 				desiredAbsent[publicKey] = struct{}{}
 			}
@@ -69,15 +69,22 @@ func (s *InboundService) ReconcileVKTurnProxyClientPeers() error {
 		if err != nil {
 			continue
 		}
-		present := map[string]struct{}{}
+		present := map[string]wireguardPeer{}
 		for _, peer := range peers {
-			present[strings.TrimSpace(peer.PublicKey)] = struct{}{}
+			present[strings.TrimSpace(peer.PublicKey)] = peer
 		}
 
 		var toAdd []string
 		var toRemove []string
-		for pk := range desiredPresent {
-			if _, ok := present[pk]; !ok {
+		for pk, want := range desiredPresent {
+			existing, ok := present[pk]
+			if !ok {
+				toAdd = append(toAdd, pk)
+				continue
+			}
+			// A mirrored row whose account drifted from its vk-turn client (a
+			// client edit, or a wireguard save that rewrote it) is refreshed too.
+			if strings.TrimSpace(existing.Email) == want.Email && !accountMatches(existing.raw, want.account) {
 				toAdd = append(toAdd, pk)
 			}
 		}

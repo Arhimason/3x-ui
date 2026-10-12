@@ -27,6 +27,42 @@ type wireguardPeer struct {
 	// preserves the client fields this peer view does not model (subId, tgId,
 	// enable, limits, timestamps). Nil for a peer minted in code.
 	raw map[string]any
+
+	// account holds the owning vk-turn-proxy client's account fields for a
+	// mirrored peer. The peer and the vk-turn client share one ClientRecord by
+	// email, and SyncInbound applies quota/expiry/subId unconditionally, so the
+	// wireguard side must carry the same values or every wireguard save resets
+	// the user's limits and subscription.
+	account map[string]any
+}
+
+// vkTurnProxyClientAccount returns the ClientRecord fields a vk-turn-proxy
+// client owns, keyed like model.Client's JSON.
+func vkTurnProxyClientAccount(client *VKTurnProxyClient) map[string]any {
+	return map[string]any{
+		"enable":     client.Enable,
+		"limitIp":    client.LimitIP,
+		"totalGB":    client.TotalGB,
+		"expiryTime": client.ExpiryTime,
+		"tgId":       client.TgID,
+		"subId":      client.SubID,
+		"comment":    client.Comment,
+		"reset":      client.Reset,
+	}
+}
+
+// accountMatches reports whether a stored client object already carries the
+// given account values. Values are compared through JSON so decoded numbers
+// (float64) match their int64 originals.
+func accountMatches(stored map[string]any, account map[string]any) bool {
+	for key, want := range account {
+		wantJSON, _ := json.Marshal(want)
+		gotJSON, _ := json.Marshal(stored[key])
+		if string(wantJSON) != string(gotJSON) {
+			return false
+		}
+	}
+	return true
 }
 
 // keepClientIdentity carries an existing client's identity onto a peer that is
@@ -36,7 +72,11 @@ type wireguardPeer struct {
 // since ClientRecord is keyed by email that orphans the row and its traffic.
 func keepClientIdentity(incoming wireguardPeer, existing wireguardPeer) wireguardPeer {
 	incoming.raw = existing.raw
-	if strings.TrimSpace(existing.Email) != "" {
+	if existingEmail := strings.TrimSpace(existing.Email); existingEmail != "" {
+		if existingEmail != strings.TrimSpace(incoming.Email) {
+			// A pre-existing wireguard client owns this row; its account is its own.
+			incoming.account = nil
+		}
 		incoming.Email = existing.Email
 	}
 	return incoming
@@ -63,6 +103,7 @@ func (p wireguardPeer) toClientObject() map[string]any {
 	if strings.TrimSpace(p.Email) != "" {
 		obj["email"] = p.Email
 	}
+	maps.Copy(obj, p.account)
 	// A client row is keyed by email and must be enabled to reach the runtime;
 	// a freshly minted peer carries neither.
 	if _, ok := obj["enable"]; !ok {
