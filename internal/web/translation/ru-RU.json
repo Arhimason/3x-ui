@@ -86,7 +86,6 @@
     "expiry": "Срок действия",
     "totalQuota": "Общий лимит",
     "individualLinks": "Индивидуальные ссылки",
-    "recommended": "Рекомендуется",
     "active": "Активна",
     "inactive": "Неактивна",
     "unlimited": "Неограниченно",
@@ -730,23 +729,6 @@
         "keepAlive": "Keep alive",
         "peerNumber": "Peer {n}",
         "peerNumberConfig": "Конфиг Peer {n}"
-      },
-      "stream": {
-        "general": {
-          "request": "Запрос",
-          "response": "Ответ",
-          "name": "Имя",
-          "value": "Значение"
-        },
-        "tcp": {
-          "version": "Версия",
-          "method": "Метод",
-          "path": "Путь",
-          "status": "Статус",
-          "statusDescription": "Описание статуса",
-          "requestHeader": "Заголовок запроса",
-          "responseHeader": "Заголовок ответа"
-        }
       },
       "protocols": {
         "vkTurnProxy": {
@@ -2066,8 +2048,6 @@
         "subnetCidr": "Маска подсети (CIDR)",
         "allowedIPs": "Разрешенные IP-адреса",
         "endpoint": "Конечная точка",
-        "domainStrategy": "Стратегия домена",
-        "psk": "Общий ключ",
         "domainStrategy": "Стратегия домена",
         "fixConflicts": "Исправить конфликты",
         "fixedConflictsTitle": "Исправленные конфликты allowedIP",

@@ -400,3 +400,11 @@ func NewServer(creds credentials.TransportCredentials, onNeedRestart func()) *gr
 	})
 	return gs
 }
+
+// RunServer runs the management gRPC server until it is stopped, logging any
+// unexpected listener failure instead of dropping it.
+func RunServer(gs *grpc.Server, lis net.Listener) {
+	if err := gs.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+		logger.Error("gRPC panel API stopped unexpectedly: ", err)
+	}
+}

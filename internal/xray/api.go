@@ -794,12 +794,14 @@ func (x *XrayAPI) GetTraffic() ([]*Traffic, []*ClientTraffic, []*WireGuardPeerTr
 			lastValue = 0
 		}
 		value := stat.Value - lastValue
-		if matches := trafficRegex.FindStringSubmatch(stat.Name); len(matches) == 4 {
+		// The regexes are unanchored, so a peer stat whose inbound tag ends in
+		// "inbound" or "user" would also match the generic patterns; test it first.
+		if matches := wireGuardPeerTrafficRegex.FindStringSubmatch(stat.Name); len(matches) == 4 && strings.HasPrefix(stat.Name, "wireguard>>>") {
+			processWireGuardPeerTraffic(matches, value, wireGuardPeerTrafficMap)
+		} else if matches := trafficRegex.FindStringSubmatch(stat.Name); len(matches) == 4 {
 			processTraffic(matches, value, tagTrafficMap)
 		} else if matches := clientTrafficRegex.FindStringSubmatch(stat.Name); len(matches) == 3 {
 			processClientTraffic(matches, value, emailTrafficMap)
-		} else if matches := wireGuardPeerTrafficRegex.FindStringSubmatch(stat.Name); len(matches) == 4 {
-			processWireGuardPeerTraffic(matches, value, wireGuardPeerTrafficMap)
 		}
 	}
 

@@ -398,31 +398,29 @@ export const sections: readonly Section[] = [
       {
         method: 'GET',
         path: '/panel/api/inbounds/:id/vk-turn-proxy/peer-options',
-        summary: 'List the wireguard peers available for binding a vk-turn-proxy client when the inbound forwards into a wireguard inbound.',
-        params: [
-          { name: 'id', in: 'path', type: 'number', desc: 'vk-turn-proxy inbound ID.' },
-        ],
+        summary:
+          'List the wireguard peers available for binding a vk-turn-proxy client when the inbound forwards into a wireguard inbound.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'vk-turn-proxy inbound ID.' }],
       },
       {
         method: 'GET',
         path: '/panel/api/inbounds/:id/wireguard/allowedIpConflicts',
-        summary: 'List duplicate allowedIP conflicts (the 10.0.0.X/32 pool) among a wireguard inbound peers so the UI can offer an auto-fix.',
-        params: [
-          { name: 'id', in: 'path', type: 'number', desc: 'WireGuard inbound ID.' },
-        ],
+        summary:
+          'List duplicate allowedIP conflicts (the 10.0.0.X/32 pool) among a wireguard inbound peers so the UI can offer an auto-fix.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'WireGuard inbound ID.' }],
       },
       {
         method: 'POST',
         path: '/panel/api/inbounds/:id/wireguard/fixAllowedIpConflicts',
-        summary: 'Reassign each duplicate 10.0.0.X/32 allowedIP in a wireguard inbound to a fresh unique address, re-sync any bound vk-turn-proxy client, and return the peers that were changed.',
-        params: [
-          { name: 'id', in: 'path', type: 'number', desc: 'WireGuard inbound ID.' },
-        ],
+        summary:
+          'Reassign each duplicate 10.0.0.X/32 allowedIP in a wireguard inbound to a fresh unique address, re-sync any bound vk-turn-proxy client, and return the peers that were changed.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'WireGuard inbound ID.' }],
       },
       {
         method: 'GET',
         path: '/panel/api/inbounds/:id/vk-turn-proxy/export/:clientId',
-        summary: 'Build the wingsv:// config link for a single vk-turn-proxy client. Honours forwarded headers only from a trusted proxy.',
+        summary:
+          'Build the wingsv:// config link for a single vk-turn-proxy client. Honours forwarded headers only from a trusted proxy.',
         params: [
           { name: 'id', in: 'path', type: 'number', desc: 'vk-turn-proxy inbound ID.' },
           { name: 'clientId', in: 'path', type: 'string', desc: 'vk-turn-proxy client ID.' },
@@ -431,15 +429,15 @@ export const sections: readonly Section[] = [
       {
         method: 'GET',
         path: '/panel/api/inbounds/:id/vk-turn-proxy/export-all',
-        summary: 'Build wingsv:// config links for every enabled vk-turn-proxy client of the inbound.',
-        params: [
-          { name: 'id', in: 'path', type: 'number', desc: 'vk-turn-proxy inbound ID.' },
-        ],
+        summary:
+          'Build wingsv:// config links for every enabled vk-turn-proxy client of the inbound.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'vk-turn-proxy inbound ID.' }],
       },
       {
         method: 'POST',
         path: '/panel/api/inbounds/:id/vk-turn-proxy/clients/:clientId/enable',
-        summary: 'Toggle a single vk-turn-proxy client on or off without resending the whole settings JSON. Disabling pulls the client peer from the target wireguard inbound while keeping its reserved address.',
+        summary:
+          'Toggle a single vk-turn-proxy client on or off without resending the whole settings JSON. Disabling pulls the client peer from the target wireguard inbound while keeping its reserved address.',
         params: [
           { name: 'id', in: 'path', type: 'number', desc: 'vk-turn-proxy inbound ID.' },
           { name: 'clientId', in: 'path', type: 'string', desc: 'vk-turn-proxy client ID.' },
@@ -782,16 +780,23 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/server/vk-turn-proxy/logs/:count',
-        summary: 'Return the last N vk-turn-proxy log lines (newest first), tailed from the end of the panel log so large logs stay fast.',
+        summary:
+          'Return the last N vk-turn-proxy log lines (newest first), tailed from the end of the panel log so large logs stay fast.',
         params: [
           { name: 'count', in: 'path', type: 'number', desc: 'Number of trailing log lines.' },
-          { name: 'level', in: 'body (form)', type: 'string', desc: 'Maximum log level to include (error, warning, notice, info, debug).' },
+          {
+            name: 'level',
+            in: 'body (form)',
+            type: 'string',
+            desc: 'Maximum log level to include (error, warning, notice, info, debug).',
+          },
         ],
       },
       {
         method: 'GET',
         path: '/panel/api/server/vk-turn-proxy/status',
-        summary: 'Return the vk-turn-proxy runtime status (state, running count, installed version).',
+        summary:
+          'Return the vk-turn-proxy runtime status (state, running count, installed version).',
       },
       {
         method: 'GET',
@@ -816,15 +821,22 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/server/vk-turn-proxy/install/:version',
-        summary: 'Download and install the given vk-turn-proxy release tag, then restart the sidecar.',
+        summary:
+          'Download and install the given vk-turn-proxy release tag, then restart the sidecar.',
         params: [
-          { name: 'version', in: 'path', type: 'string', desc: 'Release tag to install, or "latest".' },
+          {
+            name: 'version',
+            in: 'path',
+            type: 'string',
+            desc: 'Release tag to install, or "latest".',
+          },
         ],
       },
       {
         method: 'POST',
         path: '/panel/api/server/vk-turn-proxy/upload',
-        summary: 'Upload a custom vk-turn-proxy binary (multipart form field "binary") and install it.',
+        summary:
+          'Upload a custom vk-turn-proxy binary (multipart form field "binary") and install it.',
       },
       {
         method: 'POST',

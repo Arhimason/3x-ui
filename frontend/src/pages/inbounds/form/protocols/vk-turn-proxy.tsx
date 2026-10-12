@@ -61,7 +61,11 @@ function VkTurnClientRow({ index, onRemove }: { index: number; onRemove: () => v
       <FormField name={['settings', 'clients', index, 'comment']} label={t('comment')}>
         <Input />
       </FormField>
-      <FormField name={['settings', 'clients', index, 'enable']} label={t('enable')} valueProp="checked">
+      <FormField
+        name={['settings', 'clients', index, 'enable']}
+        label={t('enable')}
+        valueProp="checked"
+      >
         <Switch />
       </FormField>
       <FormField
@@ -70,7 +74,10 @@ function VkTurnClientRow({ index, onRemove }: { index: number; onRemove: () => v
       >
         <InputNumber min={0} />
       </FormField>
-      <FormField name={['settings', 'clients', index, 'expiryTime']} label={t('pages.inbounds.expireDate')}>
+      <FormField
+        name={['settings', 'clients', index, 'expiryTime']}
+        label={t('pages.inbounds.expireDate')}
+      >
         <InputNumber />
       </FormField>
       <FormField
@@ -151,7 +158,7 @@ export default function VkTurnProxyFields() {
             <ul style={{ paddingInlineStart: 16, marginBottom: 0 }}>
               {fixed.map((c) => (
                 <li key={`${c.publicKey}-${c.oldIp}`}>
-                  {(c.client || c.publicKey)}: {c.oldIp} {'->'} {c.newIp}
+                  {c.client || c.publicKey}: {c.oldIp} {'->'} {c.newIp}
                 </li>
               ))}
             </ul>
@@ -227,7 +234,10 @@ export default function VkTurnProxyFields() {
 
       {forwardType === 'host' && (
         <>
-          <FormField name={['settings', 'forward', 'host']} label={t('pages.inbounds.protocols.vkTurnProxy.host')}>
+          <FormField
+            name={['settings', 'forward', 'host']}
+            label={t('pages.inbounds.protocols.vkTurnProxy.host')}
+          >
             <Input placeholder="127.0.0.1" />
           </FormField>
           <FormField name={['settings', 'forward', 'port']} label={t('pages.inbounds.port')}>
@@ -247,33 +257,60 @@ export default function VkTurnProxyFields() {
       <FormField name={['settings', 'link']} label={t('pages.inbounds.protocols.vkTurnProxy.link')}>
         <Input />
       </FormField>
-      <FormField name={['settings', 'linkSecondary']} label={t('pages.inbounds.protocols.vkTurnProxy.linkSecondary')}>
+      <FormField
+        name={['settings', 'linkSecondary']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.linkSecondary')}
+      >
         <Input />
       </FormField>
 
-      <Divider titlePlacement="center">{t('pages.inbounds.protocols.vkTurnProxy.wgParams')}</Divider>
-      <FormField name={['settings', 'sessionMode']} label={t('pages.inbounds.protocols.vkTurnProxy.sessionMode')}>
+      <Divider titlePlacement="center">
+        {t('pages.inbounds.protocols.vkTurnProxy.wgParams')}
+      </Divider>
+      <FormField
+        name={['settings', 'sessionMode']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.sessionMode')}
+      >
         <Input />
       </FormField>
-      <FormField name={['settings', 'localEndpoint']} label={t('pages.inbounds.protocols.vkTurnProxy.localEndpoint')}>
+      <FormField
+        name={['settings', 'localEndpoint']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.localEndpoint')}
+      >
         <Input />
       </FormField>
-      <FormField name={['settings', 'wgDns']} label={t('pages.inbounds.protocols.vkTurnProxy.wgDns')}>
+      <FormField
+        name={['settings', 'wgDns']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.wgDns')}
+      >
         <Input />
       </FormField>
       <FormField name={['settings', 'wgMtu']} label="MTU">
         <InputNumber min={1} />
       </FormField>
-      <FormField name={['settings', 'wgAllowedIps']} label={t('pages.inbounds.protocols.vkTurnProxy.wgAllowedIps')}>
+      <FormField
+        name={['settings', 'wgAllowedIps']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.wgAllowedIps')}
+      >
         <Input placeholder="0.0.0.0/0, ::/0" />
       </FormField>
-      <FormField name={['settings', 'threads']} label={t('pages.inbounds.protocols.vkTurnProxy.threads')}>
+      <FormField
+        name={['settings', 'threads']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.threads')}
+      >
         <InputNumber min={1} />
       </FormField>
-      <FormField name={['settings', 'credsGroupSize']} label={t('pages.inbounds.protocols.vkTurnProxy.credsGroupSize')}>
+      <FormField
+        name={['settings', 'credsGroupSize']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.credsGroupSize')}
+      >
         <InputNumber min={1} />
       </FormField>
-      <FormField name={['settings', 'useUdp']} label={t('pages.inbounds.protocols.vkTurnProxy.useUdp')} valueProp="checked">
+      <FormField
+        name={['settings', 'useUdp']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.useUdp')}
+        valueProp="checked"
+      >
         <Switch />
       </FormField>
       <FormField
@@ -285,7 +322,10 @@ export default function VkTurnProxyFields() {
       </FormField>
 
       <Divider titlePlacement="center">{t('pages.inbounds.protocols.vkTurnProxy.wrap')}</Divider>
-      <FormField name={['settings', 'wrapMode']} label={t('pages.inbounds.protocols.vkTurnProxy.wrapMode')}>
+      <FormField
+        name={['settings', 'wrapMode']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.wrapMode')}
+      >
         <Select
           allowClear
           options={WRAP_MODES.map((value) => ({
@@ -294,10 +334,16 @@ export default function VkTurnProxyFields() {
           }))}
         />
       </FormField>
-      <FormField name={['settings', 'wrapCipher']} label={t('pages.inbounds.protocols.vkTurnProxy.wrapCipher')}>
+      <FormField
+        name={['settings', 'wrapCipher']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.wrapCipher')}
+      >
         <Input />
       </FormField>
-      <FormField name={['settings', 'wrapKeyHex']} label={t('pages.inbounds.protocols.vkTurnProxy.wrapKeyHex')}>
+      <FormField
+        name={['settings', 'wrapKeyHex']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.wrapKeyHex')}
+      >
         <Input />
       </FormField>
       <FormField
@@ -323,7 +369,10 @@ export default function VkTurnProxyFields() {
       >
         <Input />
       </FormField>
-      <FormField name={['settings', 'panelToken']} label={t('pages.inbounds.protocols.vkTurnProxy.panelToken')}>
+      <FormField
+        name={['settings', 'panelToken']}
+        label={t('pages.inbounds.protocols.vkTurnProxy.panelToken')}
+      >
         <Input />
       </FormField>
       <FormField

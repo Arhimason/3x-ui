@@ -827,7 +827,7 @@ func (s *InboundService) validateVKTurnProxySettings(settings *VKTurnProxySettin
 		if err != nil {
 			return err
 		}
-		if target.Protocol != model.Hysteria2 {
+		if !isHysteria2ForwardTarget(target.Protocol) {
 			return common.NewError("selected forward target is not a hysteria2 inbound")
 		}
 	case VKTurnProxyForwardExternal:
@@ -855,6 +855,12 @@ func (s *InboundService) validateVKTurnProxySettings(settings *VKTurnProxySettin
 	return nil
 }
 
+// Hysteria v2 inbounds are stored as plain "hysteria"; "hysteria2" is kept for
+// rows created by older WINGS builds.
+func isHysteria2ForwardTarget(protocol model.Protocol) bool {
+	return protocol == model.Hysteria || protocol == model.Hysteria2
+}
+
 func (s *InboundService) resolveVKTurnProxyForwardAddress(settings *VKTurnProxySettings) (string, error) {
 	switch settings.Forward.Type {
 	case VKTurnProxyForwardExternal:
@@ -878,7 +884,7 @@ func (s *InboundService) resolveVKTurnProxyForwardAddress(settings *VKTurnProxyS
 		if err != nil {
 			return "", err
 		}
-		if inbound.Protocol != model.Hysteria2 {
+		if !isHysteria2ForwardTarget(inbound.Protocol) {
 			return "", common.NewError("selected inbound is not hysteria2")
 		}
 		host := strings.TrimSpace(inbound.Listen)

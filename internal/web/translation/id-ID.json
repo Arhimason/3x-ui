@@ -290,7 +290,23 @@
       "accessBlocked": "BLOCKED",
       "accessProxy": "PROXY",
       "importKeepHostSettings": "Pertahankan pengaturan mesin ini",
-      "importKeepHostSettingsDesc": "Mempertahankan alamat dengar, port, path dasar, sertifikat, dan identitas node panel ini alih-alih mengambilnya dari berkas yang diunggah."
+      "importKeepHostSettingsDesc": "Mempertahankan alamat dengar, port, path dasar, sertifikat, dan identitas node panel ini alih-alih mengambilnya dari berkas yang diunggah.",
+      "vkTurnLogs": "VK TURN logs",
+      "vkTurnManage": "VK TURN manage",
+      "vkTurnStatus": "VK TURN status",
+      "vkTurnStatusRunning": "Running",
+      "vkTurnStatusStop": "Stopped",
+      "vkTurnStatusError": "Error",
+      "vkTurnStatusUnknown": "Unknown",
+      "vkTurnManageTitle": "VK TURN Proxy",
+      "vkTurnInstalled": "Installed version",
+      "vkTurnRunningCount": "Running",
+      "vkTurnStart": "Start",
+      "vkTurnStop": "Stop",
+      "vkTurnRestart": "Restart",
+      "vkTurnVersions": "Versions",
+      "vkTurnInstallDialog": "Install vk-turn-proxy",
+      "vkTurnInstallDialogDesc": "Install version #version#?"
     },
     "inbounds": {
       "totalDownUp": "Total Terkirim/Diterima",
@@ -691,7 +707,10 @@
         "bytesPerSecTip": "Batas kecepatan (byte/detik) yang diterapkan pada lalu lintas fallback setelah ambang batas, agar probe tidak dapat memakai server Anda sebagai bandwidth gratis menuju target. 0 = tanpa batas (menonaktifkan arah ini).",
         "burstBytesPerSec": "Byte per detik burst",
         "burstBytesPerSecTip": "Kelonggaran untuk burst singkat di atas laju tetap (ukuran token-bucket). Jika lebih kecil dari Byte per detik, nilainya dinaikkan agar sama.",
-        "autoFill": "Isi Otomatis"
+        "autoFill": "Isi Otomatis",
+        "egressOutbound": "Egress outbound",
+        "egressOutboundHint": "Optional. Force this inbound's traffic out through the chosen outbound (or balancer) regardless of outbound order. Use this so vk-turn-proxy traffic stays on freedom when a WARP outbound is placed first. Empty leaves it on the default outbound.",
+        "egressOutboundPlaceholder": "Default outbound"
       },
       "info": {
         "mode": "Mode",
@@ -711,7 +730,61 @@
         "peerNumberConfig": "Konfig Peer {n}"
       },
       "sniffingDestOverride": "Penggantian tujuan",
-      "advancedTitle": "Pengaturan Lanjutan"
+      "advancedTitle": "Pengaturan Lanjutan",
+      "protocols": {
+        "vkTurnProxy": {
+          "forward": "Forward target",
+          "forwardType": "Forward type",
+          "forwardTypes": {
+            "wireguardInbound": "WireGuard inbound",
+            "hysteria2Inbound": "Hysteria2 inbound",
+            "host": "Custom host:port"
+          },
+          "wireguardInbound": "WireGuard inbound",
+          "hysteria2Inbound": "Hysteria2 inbound",
+          "host": "Host",
+          "links": "VK links",
+          "link": "Link",
+          "linkSecondary": "Secondary link",
+          "wgParams": "WireGuard parameters",
+          "sessionMode": "Session mode",
+          "localEndpoint": "Local endpoint",
+          "wgDns": "DNS",
+          "wgAllowedIps": "Allowed IPs",
+          "threads": "Threads",
+          "credsGroupSize": "Credentials group size",
+          "useUdp": "Use UDP",
+          "noObfuscation": "No obfuscation",
+          "wrap": "WRAP",
+          "wrapMode": "WRAP mode",
+          "wrapModes": {
+            "off": "Off",
+            "optional": "Optional",
+            "required": "Required"
+          },
+          "wrapCipher": "WRAP cipher",
+          "wrapKeyHex": "WRAP key (hex)",
+          "wrapAcceptClientKeys": "Accept client keys",
+          "panel": "Panel provisioning",
+          "panelGrpc": "Panel gRPC endpoint",
+          "panelGrpcHint": "wingsv panel Provisioning endpoint (host:port). Set to enable the DTLS PROVISION self-enroll path.",
+          "nodeId": "Node ID",
+          "nodeIdHint": "This relay's id as registered in the panel (copy it from the panel's node list).",
+          "panelToken": "Panel token",
+          "panelCaPin": "Panel CA pin",
+          "panelCaPinHint": "Only for a self-signed panel: sha256/<base64> pin. Leave empty for a publicly trusted panel (verified by system trust).",
+          "panelInsecure": "Panel plaintext",
+          "panelInsecureHint": "Dial the panel over plaintext instead of TLS. Only on a trusted local network.",
+          "clients": "Clients",
+          "addClient": "Add client",
+          "clientNumber": "Client {{n}}",
+          "totalGB": "Traffic limit (GB)",
+          "limitIp": "IP limit",
+          "peerManaged": "Managed peer",
+          "peerManagedHint": "Auto-provisioned on save",
+          "peerPublicKey": "Peer public key"
+        }
+      }
     },
     "clients": {
       "tabBasics": "Dasar",
@@ -1975,7 +2048,10 @@
         "subnetCidr": "CIDR Subnet",
         "allowedIPs": "IP yang Diizinkan",
         "endpoint": "Titik Akhir",
-        "domainStrategy": "Strategi Domain"
+        "domainStrategy": "Strategi Domain",
+        "fixConflicts": "Fix conflicting",
+        "fixedConflictsTitle": "Fixed allowedIP conflicts",
+        "noConflicts": "No conflicts"
       },
       "amneziawg": {
         "privateKey": "Kunci Privat",

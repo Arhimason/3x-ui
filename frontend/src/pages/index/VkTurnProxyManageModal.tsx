@@ -33,15 +33,18 @@ interface VkTurnStatus {
 // service and install a version from the WINGS-N/vk-turn-proxy releases. The
 // log viewer lives in VkTurnProxyLogModal; this is the control surface that the
 // Vue->React migration had not ported yet.
-export default function VkTurnProxyManageModal({ open, onClose, onBusy }: VkTurnProxyManageModalProps) {
+export default function VkTurnProxyManageModal({
+  open,
+  onClose,
+  onBusy,
+}: VkTurnProxyManageModalProps) {
   const { t } = useTranslation();
   const [modal, modalContextHolder] = Modal.useModal();
   const [versions, setVersions] = useState<string[]>([]);
   const [status, setStatus] = useState<VkTurnStatus | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const runRefresh = useCallback(async () => {
     try {
       const [verMsg, statMsg] = await Promise.all([
         HttpUtil.get<string[]>('/panel/api/server/vk-turn-proxy/versions'),
@@ -54,9 +57,22 @@ export default function VkTurnProxyManageModal({ open, onClose, onBusy }: VkTurn
     }
   }, []);
 
+  const refresh = useCallback(() => {
+    setLoading(true);
+    void runRefresh();
+  }, [runRefresh]);
+
+  // Raise the spinner during render on open so the fetch effect stays free of
+  // synchronous setState.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setLoading(true);
+  }
+
   useEffect(() => {
-    if (open) refresh();
-  }, [open, refresh]);
+    if (open) void runRefresh();
+  }, [open, runRefresh]);
 
   const runAction = useCallback(
     async (action: 'start' | 'stop' | 'restart') => {

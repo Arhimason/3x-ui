@@ -17,9 +17,10 @@ files are distributed under CC BY-SA 4.0 as well.
 The remaining files are each app's own icon, downscaled to 96 px, used only to
 identify the app a button opens. They remain the trademarks of their owners.
 
-| File                | Source                                                                    |
-| ------------------- | ------------------------------------------------------------------------- |
-| `shadowrocket.webp` | App Store listing [id932747118](https://apps.apple.com/app/id932747118)   |
-| `streisand.webp`    | App Store listing [id6450534064](https://apps.apple.com/app/id6450534064) |
-| `v2box.webp`        | App Store listing [id6446814690](https://apps.apple.com/app/id6446814690) |
-| `incy.webp`         | App Store listing [id6756943388](https://apps.apple.com/app/id6756943388) |
+| File                | Source                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| `shadowrocket.webp` | App Store listing [id932747118](https://apps.apple.com/app/id932747118)                   |
+| `streisand.webp`    | App Store listing [id6450534064](https://apps.apple.com/app/id6450534064)                 |
+| `v2box.webp`        | App Store listing [id6446814690](https://apps.apple.com/app/id6446814690)                 |
+| `incy.webp`         | App Store listing [id6756943388](https://apps.apple.com/app/id6756943388)                 |
+| `wingsv.webp`       | [WINGS-N/WINGSV](https://github.com/WINGS-N/WINGSV) `mipmap-xhdpi/ic_launcher_round.webp` |

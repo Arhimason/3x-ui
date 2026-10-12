@@ -832,9 +832,7 @@ func (s *Server) startGRPC() error {
 		return err
 	}
 	s.grpcServer = grpcapi.NewServer(creds, s.xrayService.SetToNeedRestart)
-	go func() {
-		_ = s.grpcServer.Serve(lis)
-	}()
+	go grpcapi.RunServer(s.grpcServer, lis)
 	logger.Info("gRPC panel API running on", lis.Addr())
 	return nil
 }
